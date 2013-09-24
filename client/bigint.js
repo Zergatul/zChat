@@ -102,7 +102,7 @@
 		var radixBigInt = BigInt.fromInt(radix);
 		var result = '';
 		var num = this;
-		var length = BigInt.logCeil(this, radix) + 1;
+		var length = BigInt.logFloor(this, radix) + 1;
 		for (var i = 0; i < length; i++) {
 			var dm = divMod(num, radixBigInt);
 			result = (dm.mod.isZero() ? '0' : dm.mod._data[0].toString(16)) + result;
@@ -133,21 +133,17 @@
 	var binarySearchForDivision = function (bigint1, bigint2, shift) {
 		var j1 = 0;
 		var j2 = 0xffff;
-		var b1 = new BigInt();
-		var b2 = BigInt.mult(bigint2, BigInt.fromInt(j2));
 		while (j1 + 1 != j2) {
 			var mid = (j1 + j2)	>>> 1;
-			var midValue = BigInt.mult(bigint2, BigInt.fromInt(mid));
+			var midValue = multByInt(bigint2, mid);
 			var compareResult = compareWithShift(bigint1, midValue, shift);
 			if (compareResult == 0)
 				return mid;
 			if (compareResult < 0) {
 				j2 = mid;
-				b2 = midValue;
 			}
 			if (compareResult > 0) {
 				j1 = mid;
-				b1 = midValue;
 			}
 		}
 
@@ -197,6 +193,91 @@
 		return false;
 	};
 
+	var multGeneral = function (num1, num2) {
+		if (num1._data.length < num2._data.length) {
+			var buf = num1;
+			num1 = num2;
+			num2 = buf;
+		};
+
+		if (num2._data.length == 1)
+			return multByInt(num1, num2._data[0]);
+		if (num2._data.length <= 24)
+			return multn2(num1, num2);
+		else
+			return multKaratsuba(num1, num2);
+	};
+
+	var multn2 = function (num1, num2) {
+		var result = new BigInt();
+		result._data = new Array(num1._data.length + num2._data.length + 1);
+		for (var i = 0; i < result._data.length; i++)
+			result._data[i] = 0;
+
+		for (var i1 = 0; i1 < num1._data.length; i1++)
+			for (var i2 = 0; i2 < num2._data.length; i2++) {
+				var mult = num1._data[i1] * num2._data[i2];
+				var index = i1 + i2;
+				var val = result._data[index] + mult;
+				while (val) {
+					result._data[index++] = val & 0xffff;
+					val = (val >>> 16) + result._data[index];
+				}
+			}
+
+		truncateZeros(result);
+
+		return result;
+	};
+
+	var multKaratsuba = function (num1, num2) {
+		var digits = num2._data.length >>> 1;
+		var s1 = split(num1, digits);
+		var s2 = split(num2, digits);
+		var a0 = s1.n1, a1 = s1.n0, b0 = s2.n1, b1 = s2.n0;
+
+		var a0b0 = multGeneral(a0, b0);
+		var a1b1 = multGeneral(a1, b1);
+		var m = multGeneral(BigInt.add(a0, a1), BigInt.add(b0, b1));
+		m = BigInt.sub(BigInt.sub(m, a0b0), a1b1);
+		return BigInt.add(BigInt.add(a0b0, shl16Bit(m, digits)), shl16Bit(a1b1, 2 * digits));
+	};
+
+	var multByInt = function (num, intValue) {
+		var result = new BigInt();
+		result._data = new Array(num._data.length + 1);
+		for (var i = 0; i < result._data.length; i++)
+			result._data[i] = 0;
+
+		for (var i = 0; i < num._data.length; i++) {
+			var mult = num._data[i] * intValue;
+			var index = i;
+			var val = result._data[index] + mult;
+			while (val) {
+				result._data[index++] = val & 0xffff;
+				val = (val >>> 16) + result._data[index];
+			}
+		}
+
+		truncateZeros(result);
+
+		return result;
+	};
+
+	var split = function (num, digits) {
+		var n0 = new BigInt();
+		n0._data = new Array(num._data.length - digits);
+		var n1 = new BigInt();
+		n1._data = new Array(digits);
+
+		for (var i = 0; i < digits; i++)
+			n1._data[i] = num._data[i];
+		for (var i = 0; i < n0._data.length; i++)
+			n0._data[i] = num._data[digits + i];
+
+		return { n0: n0, n1: n1 };
+	};
+
 	window.BigInt.fromInt = function (num) {
 		if (typeof num != 'number')
 			throw 'Invalid parameter';
@@ -233,15 +314,14 @@
 		if (radix < 2 || radix > 16)
 			throw 'Invalid parameter';
 
-		var radixBigInt = BigInt.fromInt(radix);
 		var power = BigInt.fromInt(1);
 		var result = new BigInt();
 		for (var i = str.length - 1; i >= 0; i--) {
 			var digit = parseInt(str.charAt(i), 16);
 			if (digit >= radix)
 				throw 'Invalid symbol';
-			result = BigInt.add(result, BigInt.mult(power, BigInt.fromInt(digit)));
-			power = BigInt.mult(power, radixBigInt);
+			result = BigInt.add(result, multByInt(power, digit));
+			power = multByInt(power, radix);
 		}
 
 		return result;
@@ -388,25 +468,7 @@
 		if (num1.isZero() || num2.isZero())
 			return new BigInt();
 
-		var result = new BigInt();
-		result._data = new Array(num1._data.length + num2._data.length + 1);
-		for (var i = 0; i < result._data.length; i++)
-			result._data[i] = 0;
-
-		for (var i1 = 0; i1 < num1._data.length; i1++)
-			for (var i2 = 0; i2 < num2._data.length; i2++) {
-				var mult = num1._data[i1] * num2._data[i2];
-				var index = i1 + i2;
-				var val = result._data[index] + mult;
-				while (val) {
-					result._data[index++] = val & 0xffff;
-					val = (val >>> 16) + result._data[index];
-				}
-			}
-
-		truncateZeros(result);
-
-		return result;
+		return multGeneral(num1, num2);
 	};
 
 	window.BigInt.div = function (num1, num2) {
@@ -433,7 +495,7 @@
 		return divMod(num1, num2).mod;
 	};
 
-	window.BigInt.logCeil = function (num, base) {
+	window.BigInt.logFloor = function (num, base) {
 		if (!(num instanceof BigInt) || !(typeof base == 'number'))
 			throw 'Invalid parameters';
 
@@ -441,7 +503,7 @@
 		var power = baseBigInt;
 		var result = 0;
 		while (power.compareTo(num) <= 0) {
-			power = BigInt.mult(power, baseBigInt);
+			power = multGeneral(power, baseBigInt);
 			result++;
 		}
 
@@ -454,9 +516,9 @@
 
 		var result = BigInt.fromInt(1);
 		for (var i = exponent._data.length * 16; i >= 0; i--) {
-			result = BigInt.mod(BigInt.mult(result, result), modulus);
+			result = BigInt.mod(multGeneral(result, result), modulus);
 			if (exponent.isBitSet(i))
-				result = BigInt.mod(BigInt.mult(result, num), modulus);
+				result = BigInt.mod(multGeneral(result, num), modulus);
 		}
 
 		return result;
