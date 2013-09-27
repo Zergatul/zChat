@@ -133,6 +133,8 @@
 	var binarySearchForDivision = function (bigint1, bigint2, shift) {
 		var j1 = 0;
 		var j2 = 0xffff;
+		if (compareWithShift(bigint1, multByInt(bigint2, j2), shift) >= 0)
+			return j2;
 		while (j1 + 1 != j2) {
 			var mid = (j1 + j2)	>>> 1;
 			var midValue = multByInt(bigint2, mid);
@@ -416,19 +418,19 @@
 			throw 'Invalid parameters';
 
 		var result = new BigInt();
-		result._data = [];
 
 		var len = Math.max(num1._data.length, num2._data.length);
+		result._data = new Array(len + 1);
 		var rem = 0;
 		for (var i = 0; i < len; i++) {
 			var sum = rem;
 			sum += i < num1._data.length  ? num1._data[i] : 0;
 			sum += i < num2._data.length ? num2._data[i] : 0;
-			result._data.push(sum & 0xffff);
+			result._data[i] = sum & 0xffff;
 			rem = sum >>> 16;
 		};
-		if (rem > 0)
-			result._data.push(rem);
+		result._data[len] = rem;
+		truncateZeros(result);
 
 		return result;
 	};
@@ -441,19 +443,18 @@
 			throw 'Negative values not supported';
 
 		var result = new BigInt();
-		result._data = [];
+		result._data = new Array(num1._data.length);
 
 		var rem = 0;
 		for (var i = 0; i < num1._data.length; i++) {
-			var sub = rem;
-			sub += num1._data[i];
+			var sub = rem + num1._data[i];
 			sub -= i < num2._data.length ? num2._data[i] : 0;
 			if (sub < 0) {
 				rem = -1;
 				sub = sub + 0x10000;
 			} else
 				rem = 0;
-			result._data.push(sub);
+			result._data[i] = sub;
 		};
 
 		truncateZeros(result);
