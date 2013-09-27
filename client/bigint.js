@@ -5,6 +5,7 @@
 
 	window.BigInt = function () {
 		this._data = [];
+		this._bitLengthCalculated = false;
 	};
 
 	window.BigInt.prototype.isZero = function () {
@@ -53,6 +54,9 @@
 	};
 
 	window.BigInt.prototype.bitLength = function () {
+		if (this._bitLengthCalculated)
+			return this._bitLength;
+
 		if (this.isZero())
 			return 0;
 
@@ -62,6 +66,9 @@
 			mask = mask >>> 1;
 			length--;
 		}
+
+		this._bitLength = length;
+		this._bitLengthCalculated = true;
 
 		return length;
 	};
@@ -111,6 +118,15 @@
 		return result;
 	};
 
+	window.BigInt.prototype.clone = function () {
+		var result = new BigInt();
+		var length = this._data.length;
+		result._data = new Array(length);
+		for (var i = 0; i < length; i++)
+			result._data[i] = this._data[i];
+		return result;
+	};
+
 	var truncateZeros = function (bigint) {
 		while (bigint._data.length > 0 && bigint._data[bigint._data.length - 1] == 0)
 			bigint._data.pop();
@@ -153,6 +169,8 @@
 	};
 
 	var shl16Bit = function (num, count) {
+		if (num.isZero())
+			return num;
 		var result = new BigInt();
 		for (var i = 0; i < count; i++)
 			result._data.push(0);
@@ -204,7 +222,7 @@
 
 		if (num2._data.length == 1)
 			return multByInt(num1, num2._data[0]);
-		if (num2._data.length <= 24)
+		if (num2._data.length <= 16)
 			return multn2(num1, num2);
 		else
 			return multKaratsuba(num1, num2);
@@ -246,6 +264,9 @@
 	};
 
 	var multByInt = function (num, intValue) {
+		if (intValue == 0)
+			return new BigInt();
+
 		var result = new BigInt();
 		result._data = new Array(num._data.length + 1);
 		for (var i = 0; i < result._data.length; i++)
@@ -523,6 +544,45 @@
 		}
 
 		return result;
+	};
+
+	window.BigInt.newMod = function (num1, num2) {
+		var mults = new Array(16);
+		for (var i = 0; i < 16; i++)
+			mults[i] = multByInt(num2, i);
+		num1 = num1.clone();
+
+		var div = new BigInt();
+		div._data = new Array(num1.length - num2.length + 1);
+		for (var i = div._data.length - 1; i >= 0; i--) {
+			/* todo: improve*/
+			for (var byte = 0; byte < 16; byte++)
+				if (1);
+		}
+	};
+
+	BigInt.cmpWithShift = function (num1, num2, shift) {
+		var intPart = shift >>> 4;
+		var bitPart = shift & 0xf;
+		var num1bl = num1.bitLength();
+		var num2bl = num2.bitLength();
+		if (num1bl < num2bl + shift)
+			return -1;
+		if (num1bl > num2bl + shift)
+			return 1;
+		for (var i = num1._data.length - 1; i >= 0; i--) {
+			var num1Part = num1._data[i];
+			var num2Part = 0;
+			if (i - intPart < num2._data.length)
+				num2Part = (num2._data[i - intPart] << bitPart) & 0xffff;
+			if (i - intPart - 1 >= 0)
+				num2Part = num2Part | (num2._data[i - intPart - 1] >>> (16 - bitPart));
+			if (num1Part > num2Part)
+				return 1;
+			if (num1Part < num2Part)
+				return -1;
+		}
+		return 0;
 	};
 
 })();
