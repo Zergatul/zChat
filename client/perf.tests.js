@@ -124,9 +124,9 @@
 
 			printResults('Number length: ' + len + '; ', t1, t2);
 		};
-		foo(10, 1000000);
+		/*foo(10, 1000000);
 		foo(100, 10000);
-		foo(1000, 100);
+		foo(1000, 100);*/
 
 		console.log('>>> BigInt.mod test');
 		foo = function (len, count) {
@@ -157,9 +157,9 @@
 
 			printResults('Number length: ' + len + '; ', t1, t2);
 		};
-		foo(10, 1000000);
-		foo(100, 10000);
-		foo(1000, 100);
+		foo(10, 300000);
+		foo(100, 15000);
+		foo(1000, 500);
 	};
 
 })();

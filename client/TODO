@@ -1,0 +1,2 @@
+bitLength(): use binary search with constants in code
+multKaratsuba: don't create new objects

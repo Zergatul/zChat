@@ -5,7 +5,7 @@
 
 	window.BigInt = function () {
 		this._data = [];
-		this._bitLengthCalculated = false;
+		this._sign = 1;
 	};
 
 	window.BigInt.prototype.isZero = function () {
@@ -14,6 +14,10 @@
 
 	window.BigInt.prototype.isOne = function () {
 		return this._data.length == 1 && this._data[0] == 1;
+	};
+
+	window.BigInt.prototype.lessThanZero = function () {
+		return !this.isZero() && this._sign == 0;
 	};
 
 	window.BigInt.prototype.isBitSet = function (index) {
@@ -54,9 +58,6 @@
 	};
 
 	window.BigInt.prototype.bitLength = function () {
-		if (this._bitLengthCalculated)
-			return this._bitLength;
-
 		if (this.isZero())
 			return 0;
 
@@ -66,9 +67,6 @@
 			mask = mask >>> 1;
 			length--;
 		}
-
-		this._bitLength = length;
-		this._bitLengthCalculated = true;
 
 		return length;
 	};
@@ -115,6 +113,8 @@
 			result = (dm.mod.isZero() ? '0' : dm.mod._data[0].toString(16)) + result;
 			num = dm.div;
 		}
+		if (this._sign == 0)
+			result = '-' + result;
 		return result;
 	};
 
@@ -127,45 +127,117 @@
 		return result;
 	};
 
-	var truncateZeros = function (bigint) {
-		while (bigint._data.length > 0 && bigint._data[bigint._data.length - 1] == 0)
-			bigint._data.pop();
+	window.BigInt.prototype.toByteArray = function () {
+		var result = new Array(this._data.length * 2);
+		var index = 0;
+		for (var i = this._data.length - 1; i >= 0; i--) {
+			result[index++] = this._data[i] >>> 8;
+			result[index++] = this._data[i] & 0xff;
+		}
+		return result;
 	};
 
-	var compareWithShift = function (bigint1, bigint2, shift) {
-		if (bigint1._data.length < bigint2._data.length + shift)
+	var truncateZeros = function (num) {
+		while (num._data.length > 0 && num._data[num._data.length - 1] == 0)
+			num._data.pop();
+	};
+
+	var addAbs = function (num1, num2) {
+		var result = new BigInt();
+
+		var len = Math.max(num1._data.length, num2._data.length);
+		result._data = new Array(len + 1);
+		var rem = 0;
+		for (var i = 0; i < len; i++) {
+			var sum = rem;
+			sum += i < num1._data.length  ? num1._data[i] : 0;
+			sum += i < num2._data.length ? num2._data[i] : 0;
+			result._data[i] = sum & 0xffff;
+			rem = sum >>> 16;
+		};
+		result._data[len] = rem;
+		truncateZeros(result);
+
+		return result;
+	};
+
+	var subAbs = function (num1, num2) {
+		var result = new BigInt();
+		result._data = new Array(num1._data.length);
+
+		var rem = 0;
+		for (var i = 0; i < num1._data.length; i++) {
+			var sub = rem + num1._data[i];
+			sub -= i < num2._data.length ? num2._data[i] : 0;
+			if (sub < 0) {
+				rem = -1;
+				sub = sub + 0x10000;
+			} else
+				rem = 0;
+			result._data[i] = sub;
+		};
+
+		truncateZeros(result);
+
+		return result;
+	};
+
+	var compareAbs = function (num1, num2) {
+		if (num1._data.length < num2._data.length)
 			return -1;
-		if (bigint1._data.length > bigint2._data.length + shift)
+		if (num1._data.length > num2._data.length)
 			return 1;
-		for (var i = bigint2._data.length - 1; i >= 0; i--) {
-			if (bigint1._data[i + shift] < bigint2._data[i])
+		for (var i = num1._data.length - 1; i >= 0; i--) {
+			if (num1._data[i] < num2._data[i])
 				return -1;
-			if (bigint1._data[i + shift] > bigint2._data[i])
+			if (num1._data[i] > num2._data[i])
 				return 1;
 		}
 		return 0;
 	};
 
-	var binarySearchForDivision = function (bigint1, bigint2, shift) {
-		var j1 = 0;
-		var j2 = 0xffff;
-		if (compareWithShift(bigint1, multByInt(bigint2, j2), shift) >= 0)
-			return j2;
-		while (j1 + 1 != j2) {
-			var mid = (j1 + j2)	>>> 1;
-			var midValue = multByInt(bigint2, mid);
-			var compareResult = compareWithShift(bigint1, midValue, shift);
-			if (compareResult == 0)
-				return mid;
-			if (compareResult < 0) {
-				j2 = mid;
-			}
-			if (compareResult > 0) {
-				j1 = mid;
-			}
+	var cmpWithShift = function (num1, num2, shift) {
+		var intPart = shift >>> 4;
+		var bitPart = shift & 0xf;
+		var num1bl = num1.bitLength();
+		var num2bl = num2.bitLength();
+		if (num1bl < num2bl + shift)
+			return -1;
+		if (num1bl > num2bl + shift)
+			return 1;
+		var n1length = num1._data.length;
+		var n2length = num2._data.length;
+		for (var i = n1length - 1; i >= 0; i--) {
+			var num1Part = num1._data[i];
+			var num2Part = 0;
+			if (i - intPart < n2length)
+				num2Part = (num2._data[i - intPart] << bitPart) & 0xffff;
+			if (i - intPart - 1 >= 0)
+				num2Part = num2Part | (num2._data[i - intPart - 1] >>> (16 - bitPart));
+			if (num1Part > num2Part)
+				return 1;
+			if (num1Part < num2Part)
+				return -1;
 		}
+		return 0;
+	};
 
-		return j1;
+	var _subWithShift = function (num1, num2, shift) {
+		var intPart = shift >>> 4;
+		var bitPart = shift & 0xf;
+		var n1length = num1._data.length;
+		var n2length = num2._data.length;
+		for (var i = 0; i < n2length; i++) {
+			num1._data[i + intPart] -= (num2._data[i] << bitPart) & 0xffff;
+			if (bitPart != 0 && i + intPart + 1 < n1length)
+				num1._data[i + intPart + 1] -= num2._data[i] >>> (16 - bitPart);
+		}
+		for (var i = intPart; i < n2length + intPart; i++)
+			if (num1._data[i] < 0) {
+				num1._data[i] += 0x10000;
+				num1._data[i + 1]--;
+			}
+		truncateZeros(num1);
 	};
 
 	var shl16Bit = function (num, count) {
@@ -180,18 +252,79 @@
 	};
 
 	var divMod = function (num1, num2) {
-		var result = new BigInt();
-		result._data = new Array(num1._data.length - num2._data.length + 1);
-		for (var i = num1._data.length - num2._data.length; i >= 0; i--) {
-			var val = binarySearchForDivision(num1, num2, i);
-			var valbi = BigInt.fromInt(val);
-			num1 = BigInt.sub(num1, shl16Bit(BigInt.mult(num2, valbi), i));
-			result._data[i] = val;
+		var mults = new Array(16);
+		for (var i = 0; i < 16; i++)
+			mults[i] = multByInt(num2, i);
+		num1 = num1.clone();
+
+		var div = new BigInt();
+		div._data = new Array(num1._data.length - num2._data.length + 1);
+		for (var i = 4 * div._data.length - 1; i >= 0; i--) {
+			var nextByte;
+			var cmp8 = cmpWithShift(num1, mults[8], i << 2);
+			if (cmp8 == 0)
+				nextByte = 8;
+			else if (cmp8 < 0) {
+				var cmp4 = cmpWithShift(num1, mults[4], i << 2);
+				if (cmp4 == 0)
+					nextByte = 4;
+				else if (cmp4 < 0) {
+					var cmp2 = cmpWithShift(num1, mults[2], i << 2);
+					if (cmp2 == 0)
+						nextByte = 2;
+					else if (cmp2 < 0) {
+						var cmp1 = cmpWithShift(num1, mults[1], i << 2);
+						nextByte = cmp1 >= 0 ? 1 : 0;
+					} else {
+						var cmp3 = cmpWithShift(num1, mults[3], i << 2);
+						nextByte = cmp3 >= 0 ? 3 : 2;
+					}
+				} else { // cmp4 > 0
+					var cmp6 = cmpWithShift(num1, mults[6], i << 2);
+					if (cmp6 == 0)
+						nextByte = 6
+					else if (cmp6 < 0) {
+						var cmp5 = cmpWithShift(num1, mults[5], i << 2);
+						nextByte = cmp5 >= 0 ? 5 : 4;
+					} else {
+						var cmp7 = cmpWithShift(num1, mults[7], i << 2);
+						nextByte = cmp7 >= 0 ? 7 : 6;
+					}
+				}
+			} else { // cmp8 > 0
+				var cmp12 = cmpWithShift(num1, mults[12], i << 2);
+				if (cmp12 == 0)
+					nextByte = 12;
+				else if (cmp12 < 0) {
+					var cmp10 = cmpWithShift(num1, mults[10], i << 2);
+					if (cmp10 == 0)
+						nextByte = 10;
+					else if (cmp10 < 0) {
+						var cmp9 = cmpWithShift(num1, mults[9], i << 2);
+						nextByte = cmp9 >= 0 ? 9 : 8;
+					} else {
+						var cmp11 = cmpWithShift(num1, mults[11], i << 2);
+						nextByte = cmp11 >= 0 ? 11 : 10;
+					}
+				} else { // cmp12 > 0
+					var cmp14 = cmpWithShift(num1, mults[14], i << 2);
+					if (cmp14 == 0)
+						nextByte = 14;
+					else if (cmp14 < 0) {
+						var cmp13 = cmpWithShift(num1, mults[13], i << 2);
+						nextByte = cmp13 >= 0 ? 13 : 12;
+					} else {
+						var cmp15 = cmpWithShift(num1, mults[15], i << 2);
+						nextByte = cmp15 >= 0 ? 15 : 14;
+					}
+				}
+			}
+
+			div._data[i >>> 2] = div._data[i >>> 2] | (nextByte << ((i & 3) << 2));
+			_subWithShift(num1, mults[nextByte], i << 2);
 		}
 
-		truncateZeros(result);
-
-		return { div: result, mod: num1 };
+		return { div: div, mod: num1 };
 	};
 
 	var millerRabinPass = function (a, n) {
@@ -304,10 +437,14 @@
 	window.BigInt.fromInt = function (num) {
 		if (typeof num != 'number')
 			throw 'Invalid parameter';
-		if (num < 0 || num > 4000000000)
+		if (num < -4000000000 || num > 4000000000)
 			throw 'Integer value not in range';
 
 		var result = new BigInt();
+		if (num < 0) {
+			result._sign = 0;
+			num = Math.abs(num);
+		}
 
 		num = Math.ceil(num);
 		result._data = [];
@@ -339,6 +476,10 @@
 
 		var power = BigInt.fromInt(1);
 		var result = new BigInt();
+		if (str.charAt(0) == '-') {
+			result._sign = 0;
+			str = str.substr(1);
+		}
 		for (var i = str.length - 1; i >= 0; i--) {
 			var digit = parseInt(str.charAt(i), 16);
 			if (digit >= radix)
@@ -438,20 +579,21 @@
 		if (!(num1 instanceof BigInt) || !(num2 instanceof BigInt))
 			throw 'Invalid parameters';
 
-		var result = new BigInt();
-
-		var len = Math.max(num1._data.length, num2._data.length);
-		result._data = new Array(len + 1);
-		var rem = 0;
-		for (var i = 0; i < len; i++) {
-			var sum = rem;
-			sum += i < num1._data.length  ? num1._data[i] : 0;
-			sum += i < num2._data.length ? num2._data[i] : 0;
-			result._data[i] = sum & 0xffff;
-			rem = sum >>> 16;
-		};
-		result._data[len] = rem;
-		truncateZeros(result);
+		if (num1._sign == num2._sign) {
+			var result = addAbs(num1, num2);
+			result._sign = num1._sign;
+		} else {
+			var cmpResult = compareAbs(num1, num2);
+			if (cmpResult == 0)
+				return new BigInt();
+			if (cmpResult < 0) {
+				result = subAbs(num2, num1);
+				result._sign = num1._sign == 0 ? 1 : 0;
+			} else {
+				result = subAbs(num1, num2);
+				result._sign = num1._sign == 0 ? 0 : 1;
+			}
+		}
 
 		return result;
 	};
@@ -460,25 +602,21 @@
 		if (!(num1 instanceof BigInt) || !(num2 instanceof BigInt))
 			throw 'Invalid parameters';
 
-		if (num1.compareTo(num2) < 0)
-			throw 'Negative values not supported';
-
-		var result = new BigInt();
-		result._data = new Array(num1._data.length);
-
-		var rem = 0;
-		for (var i = 0; i < num1._data.length; i++) {
-			var sub = rem + num1._data[i];
-			sub -= i < num2._data.length ? num2._data[i] : 0;
-			if (sub < 0) {
-				rem = -1;
-				sub = sub + 0x10000;
-			} else
-				rem = 0;
-			result._data[i] = sub;
-		};
-
-		truncateZeros(result);
+		if (num1._sign == num2._sign) {
+			var cmpResult = compareAbs(num1, num2);
+			if (cmpResult == 0)
+				return new BigInt();
+			if (cmpResult < 0) {
+				result = subAbs(num2, num1);
+				result._sign = num1._sign == 0 ? 1 : 0;
+			} else {
+				result = subAbs(num1, num2);
+				result._sign = num1._sign == 0 ? 0 : 1;
+			}
+		} else {
+			var result = addAbs(num1, num2);
+			result._sign = num1._sign;
+		}
 
 		return result;
 	};
@@ -490,7 +628,9 @@
 		if (num1.isZero() || num2.isZero())
 			return new BigInt();
 
-		return multGeneral(num1, num2);
+		var result = multGeneral(num1, num2);
+		result._sign = num1._sign == num2._sign ? 1 : 0;
+		return result;
 	};
 
 	window.BigInt.div = function (num1, num2) {
@@ -546,43 +686,37 @@
 		return result;
 	};
 
-	window.BigInt.newMod = function (num1, num2) {
-		var mults = new Array(16);
-		for (var i = 0; i < 16; i++)
-			mults[i] = multByInt(num2, i);
-		num1 = num1.clone();
+	window.BigInt.extendedEuclidean = function (a, b) {
+		if (!(a instanceof BigInt) || !(b instanceof BigInt))
+			throw 'Invalid arguments';
+		if (a.compareTo(b) < 0)
+			throw 'a must be greater than b';
 
-		var div = new BigInt();
-		div._data = new Array(num1.length - num2.length + 1);
-		for (var i = div._data.length - 1; i >= 0; i--) {
-			/* todo: improve*/
-			for (var byte = 0; byte < 16; byte++)
-				if (1);
+		var zero = new BigInt();
+		var one = BigInt.fromInt(1);
+
+		if (b.isZero())
+			return { d: a, x: one, y: zero };
+
+		var x2 = one, x1 = zero, y2 = zero, y1 = one, x, y, r;
+		while (!b.isZero()) {
+			var dm = divMod(a, b);
+			q = dm.div;
+			r = dm.mod;
+			x = BigInt.sub(x2, BigInt.mult(q, x1));
+			y = BigInt.sub(y2, BigInt.mult(q, y1));
+			a = b;
+			b = r;
+			x2 = x1;
+			x1 = x;
+			y2 = y1;
+			y1 = y;
 		}
+		return { d: a, x: x2, y: y2 };
 	};
 
-	BigInt.cmpWithShift = function (num1, num2, shift) {
-		var intPart = shift >>> 4;
-		var bitPart = shift & 0xf;
-		var num1bl = num1.bitLength();
-		var num2bl = num2.bitLength();
-		if (num1bl < num2bl + shift)
-			return -1;
-		if (num1bl > num2bl + shift)
-			return 1;
-		for (var i = num1._data.length - 1; i >= 0; i--) {
-			var num1Part = num1._data[i];
-			var num2Part = 0;
-			if (i - intPart < num2._data.length)
-				num2Part = (num2._data[i - intPart] << bitPart) & 0xffff;
-			if (i - intPart - 1 >= 0)
-				num2Part = num2Part | (num2._data[i - intPart - 1] >>> (16 - bitPart));
-			if (num1Part > num2Part)
-				return 1;
-			if (num1Part < num2Part)
-				return -1;
-		}
-		return 0;
+	window.BigInt.montgomeryReduction = function (a, b, m) {
+		throw '';
 	};
 
 })();
