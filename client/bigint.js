@@ -434,6 +434,29 @@
 		return { n0: n0, n1: n1 };
 	};
 
+	var mQuote = function (b) {
+		var a = 0x10000;
+		b = 0x10000 - b;
+		if (b == 0)
+			return { d: a, x: 1, y: 0 };
+		var x2 = 1, x1 = 0, y2 = 0, y1 = 1, x, y, r;
+		while (b > 0) {
+			q = Math.floor(a / b);
+			r = a - q * b;
+			x = x2 - q * x1;
+			y = y2 - q * y1;
+			a = b;
+			b = r;
+			x2 = x1;
+			x1 = x;
+			y2 = y1;
+			y1 = y;
+		}
+		if (y2 < 0)
+			y2 += 0x10000;
+		return y2;
+	}
+
 	window.BigInt.fromInt = function (num) {
 		if (typeof num != 'number')
 			throw 'Invalid parameter';
@@ -716,7 +739,25 @@
 	};
 
 	window.BigInt.montgomeryReduction = function (a, b, m) {
-		throw '';
+		if (!(a instanceof BigInt) || !(b instanceof BigInt) || !(m instanceof BigInt))
+			throw 'Invalid argument';
+
+		var modLength = m._data.length;
+		var A = new BigInt();
+		/*A._data = new Array(modLength);
+		for (var i = 0; i < modLength; i++)
+			A._data[i] = 0;*/
+		var mq = mQuote(m._data[0]);
+
+		for (var i = 0; i < modLength; i++) {
+			var a0 = A._data.length > 0 ? A._data[0] : 0;
+			var u = ((a0 + a._data[i] * b._data[0]) * mq) & 0xffff;
+			A = addAbs(addAbs(A, multByInt(b, a._data[i])), multByInt(m, u));
+			A = BigInt.shr(A, 16);
+		}
+		if (A.compareTo(m) > 0)
+			A = subAbs(A, m);
+		return A;
 	};
 
 })();
