@@ -13,13 +13,18 @@ function test() {
 		return result;
 	};
 
-	var n123 = BigInt.fromInt(123);
+	/*var n123 = BigInt.fromInt(123);
 	var n156 = BigInt.fromInt(156);
 	var n233 = BigInt.fromInt(233);
 	var mr = BigInt.montgomeryReduction(n123, n156, n233);
 	var tt = BigInt.mod(BigInt.mult(n123, n156), n233);
 	console.log(mr.toString());
-	console.log(tt.toString());
+	console.log(tt.toString());*/
+	var num1 = BigInt.parse(randomNumber(100));
+	var num2 = BigInt.parse(randomNumber(100));
+
+	for (var i = 0; i < 1000000; i++)
+		BigInt.add(num1, num2);
 }
 
 function extEuclidean(a, b) {

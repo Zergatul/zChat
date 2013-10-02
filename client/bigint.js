@@ -144,19 +144,31 @@
 
 	var addAbs = function (num1, num2) {
 		var result = new BigInt();
+		if (num1._data.length < num2._data.length) {
+			var buf = num1;
+			num1 = num2;
+			num2 = buf;
+		}
 
-		var len = Math.max(num1._data.length, num2._data.length);
-		result._data = new Array(len + 1);
+		var arr1 = num1._data;
+		var arr2 = num2._data;
+		var n1length = arr1.length;
+		var n2length = arr2.length;
+		var arr = new Array(n1length);
+		result._data = arr;
 		var rem = 0;
-		for (var i = 0; i < len; i++) {
-			var sum = rem;
-			sum += i < num1._data.length  ? num1._data[i] : 0;
-			sum += i < num2._data.length ? num2._data[i] : 0;
-			result._data[i] = sum & 0xffff;
-			rem = sum >>> 16;
+		for (var i = 0; i < n2length; i++) {
+			var sum = rem + arr1[i] + arr2[i];
+			arr[i] = sum & 0xffff;
+			rem = sum >> 16;
 		};
-		result._data[len] = rem;
-		truncateZeros(result);
+		for (var i = n2length; i < n1length; i++) {
+			var sum = rem + arr1[i];
+			arr[i] = sum & 0xffff;
+			rem = sum >> 16;
+		}
+		if (rem > 0)
+			arr.push(rem);
 
 		return result;
 	};

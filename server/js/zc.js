@@ -9,6 +9,8 @@ $(function () {
 			return;
 		}
 
+		$('#connect-div').hide();
+
 		con = new Connection();
 		con.sendNick(nick);
 	});

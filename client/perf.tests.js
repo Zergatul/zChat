@@ -160,6 +160,27 @@
 		foo(10, 300000);
 		foo(100, 15000);
 		foo(1000, 500);
+
+		console.log('>>> BigInt.randomPrime');
+		foo = function (len, count) {
+			sw.start();
+			for (var i = 0; i < count; i++)
+				BigInt.randomPrime(len);
+			sw.stop();
+			t1 = sw.totalElapsed();
+			sw.reset();
+
+			sw.start();
+			for (var i = 0; i < count; i++)
+				randProbPrime(len);
+			sw.stop();
+			t2 = sw.totalElapsed();
+
+			printResults('Bit length: ' + len + '; ', t1, t2);
+		};
+		/*foo(128, 10);
+		foo(256, 5);
+		foo(512, 2);*/
 	};
 
 })();
