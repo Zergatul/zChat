@@ -1,5 +1,7 @@
 (function () {
 
+	var webSocketAddr = 'ws://localhost:89/';
+
 	var pck = { srv: {}, cl: {} };
 	pck.cl.nick = 1;
 	pck.cl.chatInvite = 2;
@@ -20,7 +22,7 @@
 
 		this._handlers = {};
 
-		this._ws = new WebSocket('ws://localhost:89/');
+		this._ws = new WebSocket(webSocketAddr);
 		this._ws.onopen = function () {
 			console.log('Socket opened!');
 			if (typeof self._onConnect == 'function') {

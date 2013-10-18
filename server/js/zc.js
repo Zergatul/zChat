@@ -55,6 +55,7 @@ $(function () {
 			partnerNick = _partnerNick;
 			$('#session-init-div').hide();
 			$('#chat-div').show();
+			setChatDivHeight();
 		});
 
 		connection.onMessage(function (message) {
@@ -63,12 +64,18 @@ $(function () {
 	});
 
 	var addMessage = function (cssClass, title, body) {
-		var msgDiv = $('#chat-div > div:first').clone();
+		var msgDiv = $('#messages-div > div:first').clone();
 		msgDiv.removeClass('panel-primary');
 		msgDiv.addClass(cssClass);
 		msgDiv.find('.panel-title').text(title);
 		msgDiv.find('.panel-body').text(body);
-		msgDiv.insertBefore($('#chat-div > div:last'));
+		msgDiv.appendTo($('#messages-div'));
+
+		// if contains scroll bar
+		if ($('#messages-div')[0].scrollHeight > $('#messages-div').height()) {
+			$('#messages-div').finish();
+			$('#messages-div').animate({ scrollTop: $('#messages-div')[0].scrollHeight }, 400);
+		}
 	};
 
 	$('#random-nick-btn').click(function () {
@@ -141,13 +148,6 @@ $(function () {
 		$('#choose-partner-div').show();
 	});
 
-	$('#send-btn').click(sendMessage);
-
-	$('#text-input-div input').on('keypress', function (e) {
-		if (e.which == 13)
-			sendMessage();
-	});
-
 	var sendMessage = function () {
 		var text = $('#text-input-div input').val();
 		if (text.length == 0)
@@ -156,6 +156,13 @@ $(function () {
 		connection.sendMessage(encrypt(text));
 		addMessage('panel-success', nick, text);
 	}
+
+	$('#send-btn').click(sendMessage);
+
+	$('#text-input-div input').on('keypress', function (e) {
+		if (e.which == 13)
+			sendMessage();
+	});
 
 	var encrypt = function (text) {
 		var bytes = bh.stringToByteArray(text + '.');
@@ -178,5 +185,14 @@ $(function () {
 		bh.paddings.zero.unpad(decBytes);
 		return bh.byteArrayToString(decBytes);
 	};
+
+	var setChatDivHeight = function () {
+		$('#messages-div').css('height', ($(window).height() - 140) + 'px');
+	};
+
+	$(window).resize(function () {
+		if ($('#chat-div').is(':visible'))
+			setChatDivHeight();
+	});
 
 });
