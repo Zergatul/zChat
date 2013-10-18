@@ -3,6 +3,8 @@ var fs = require('fs');
 
 module.exports = {};
 
+var httpPort = 88;
+
 var files = {};
 files.index = fs.readFileSync('index.html');
 files.css = {};
@@ -68,6 +70,6 @@ var httpServer = http.createServer(function (request, response) {
 });
 
 module.exports.start = function () {
-	httpServer.listen(88);
+	httpServer.listen(httpPort);
 	console.log('HTTP server started.');
 };
