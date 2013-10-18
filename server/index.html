@@ -3,25 +3,92 @@
 <head>
 	<meta http-equiv="content-type" content="text/html; charset=utf-8" />
 	<title>zChat</title>
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<link href="css/bootstrap.css" rel="stylesheet">
-	<link href="css/bootstrap-responsive.css" rel="stylesheet">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<link href="css/bootstrap.css" rel="stylesheet" />
 	<script src="js/jquery-2.0.3.js"></script>
 	<script src="js/sockets.js"></script>
 	<script src="js/zc.js"></script>
+	<script src="js/bithelper.js"></script>
+	<script src="js/aes.js"></script>
 </head>
 <body>
 	<div class="text-center">
 		<h3>zChat</h3>
-		<div class="input-append" id="connect-div">
-			<input type="text" class="span2" placeholder="Your nick" id="nick-input" />
-			<button class="btn btn-success" type="button" id="connect-btn">Connect</button>
-			<button class="btn btn-primary" type="button" id="random-nick-btn">Random</button>
+
+		<div class="input-group" id="connect-div" style="width: 400px; margin: 0 auto;">
+			<input type="text" class="form-control" placeholder="Your nick" id="nick-input" />
+			<span class="input-group-btn">
+				<button class="btn btn-success" type="button" id="connect-btn">Connect</button>
+				<button class="btn btn-primary" type="button" id="random-nick-btn">Random</button>
+			</span>
 		</div>
-		<div id="connection-process-div" style="display: none;">
+
+		<div id="connection-process-div" style="width: 400px; margin: 0 auto; display: none;">
+			<div class="progress progress-striped active" style="width: 200px; margin: 0 auto;">
+				<div class="progress-bar" role="progressbar" aria-valuenow="1" aria-valuemin="0" aria-valuemax="1" style="width: 100%;">
+					<span class="sr-only">Loading...</span>
+				</div>
+			</div>
 		</div>
-		<div id="chat-div" style="display: none;">
+
+		<div id="choose-partner-div" style="width: 400px; margin: 0 auto; display: none;">
+			<h4 id="nick-h4"></h4>
+			<div class="input-group">
+				<input type="text" class="form-control" placeholder="Partner nick" id="partner-input" />
+				<span class="input-group-btn">
+					<button class="btn btn-success" type="button" id="chat-invite-btn">Invite for chatting</button>
+				</span>
+			</div>
 		</div>
+
+		<div id="choose-partner-request-div" style="width: 400px; margin: 0 auto; display: none;">
+			Waiting for response...
+			<div class="progress progress-striped active">
+				<div class="progress-bar" role="progressbar" aria-valuenow="300" aria-valuemin="0" aria-valuemax="300" style="width: 100%;">
+					<span class="sr-only"></span>
+				</div>
+			</div>
+		</div>
+
+		<div id="choose-partner-response-div" style="width: 400px; margin: 0 auto; display: none;">
+			<p id="chat-inviting-p"></p>
+			<div class="btn-group">
+				<button type="button" class="btn btn-success" id="accept-invite-btn">Accept</button>
+				<button type="button" class="btn btn-primary" id="decline-invite-btn">Decline</button>
+			</div>
+			<br />
+			<div class="progress progress-striped active">
+				<div class="progress-bar" role="progressbar" aria-valuenow="300" aria-valuemin="0" aria-valuemax="300" style="width: 100%;">
+					<span class="sr-only"></span>
+				</div>
+			</div>
+		</div>
+
+		<div id="session-init-div" style="width: 400px; margin: 0 auto; display: none;">
+			<div class="progress progress-striped active" style="width: 200px; margin: 0 auto;">
+				<div class="progress-bar" role="progressbar" aria-valuenow="1" aria-valuemin="0" aria-valuemax="1" style="width: 100%;">
+					<span class="sr-only">Loading...</span>
+				</div>
+			</div>
+		</div>
+
+		<div id="chat-div" style="width: 600px; margin: 0 auto; text-align: left; display: none;">
+			<div class="panel panel-primary">
+				<div class="panel-heading">
+					<h3 class="panel-title">Welcome!</h3>
+				</div>
+				<div class="panel-body">
+					Chat session begins.
+				</div>
+			</div>
+			<div class="input-group" id="text-input-div" style="width: 100%;">
+				<input type="text" class="form-control" />
+				<span class="input-group-btn">
+					<button class="btn btn-primary" type="button" id="send-btn">Send</button>
+				</span>
+			</div>
+		</div>
+
 	</div>
 </body>
 </html>
