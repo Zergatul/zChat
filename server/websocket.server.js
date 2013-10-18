@@ -10,6 +10,9 @@ module.exports.start = function () {
 		socket.on('message', function (message) {
 			onMessage(socket, message);
 		});
+		socket.on('close', function () {
+			onClose(socket);
+		});
 	});
 	wsServer.on('error', function (error) {
 		console.log('WebSocket error');
@@ -29,10 +32,10 @@ pck.srv.chatInviteResponse = 3;
 pck.srv.userInviteResponse = 4;
 pck.srv.sessionInit = 5;
 pck.srv.message = 6;
+pck.srv.partnerDisconnect = 7;
 
 var state = {
 	INITIAL: 1,
-	NICK_CONFIRMED: 2,
 	WAIT_FOR_INVITE_RESPONSE: 3,
 	INVITING_PROCESS: 4,
 	CHATTING_PRIMARY: 5,
@@ -73,6 +76,19 @@ var onMessage = function (socket, message) {
 	}
 };
 
+var onClose = function (socket) {
+	var user = users[socket._nick];
+	delete users[socket._nick];
+
+	if (user.state == state.CHATTING_PRIMARY || user.state == state.CHATTING_SECONDARY) {
+		var partner = users[user.partner];
+		if (partner != undefined) {
+			users[user.partner].socket.send(pck.srv.partnerDisconnect + ':');
+			users[user.partner].state = state.INITIAL;
+		}
+	}
+};
+
 var onNickPacket = function (socket, nick) {
 	if (socket._nick != undefined) {
 		console.log('Nick packet already sended!');
@@ -80,7 +96,7 @@ var onNickPacket = function (socket, nick) {
 	}
 	if (users[nick] == undefined) {
 		socket._nick = nick;
-		users[nick] = { state: state.NICK_CONFIRMED, socket: socket, nick: nick };
+		users[nick] = { state: state.INITIAL, socket: socket, nick: nick };
 		socket.send(pck.srv.nickResponse + ':' + okMessage);
 	} else {
 		socket.send(pck.srv.nickResponse + ':Nick is already used by another user.');
@@ -97,7 +113,7 @@ var onChatInvite = function (socket, partnerNick) {
 		console.log('User is not in the list.');
 		return;
 	}
-	if (users[nick].state != state.NICK_CONFIRMED) {
+	if (users[nick].state != state.INITIAL) {
 		console.log('User already in busy state.');
 		return;
 	}
@@ -154,8 +170,8 @@ var onDeclineInvite = function (socket) {
 	var partner = users[nick];
 	var user = users[partner.invitedBy];
 
-	user.state = state.NICK_CONFIRMED;
-	partner.state = state.NICK_CONFIRMED;
+	user.state = state.INITIAL;
+	partner.state = state.INITIAL;
 
 	user.socket.send(pck.srv.userInviteResponse + ':User declined your invite.');
 };
