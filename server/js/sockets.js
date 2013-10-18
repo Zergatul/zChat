@@ -1,7 +1,5 @@
 (function () {
 
-	var webSocketAddr = 'ws://localhost:89/';
-
 	var pck = { srv: {}, cl: {} };
 	pck.cl.nick = 1;
 	pck.cl.chatInvite = 2;

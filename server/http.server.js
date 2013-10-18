@@ -1,26 +1,43 @@
 var http = require('http');
 var fs = require('fs');
+var settings = require('./settings');
 
 module.exports = {};
 
-var httpPort = 88;
+var mime = {
+	html: 'text/html; charset=UTF-8',
+	css: 'text/css; charset=UTF-8',
+	js: 'application/javascript; charset=UTF-8'
+};
 
-var files = {};
-files.index = fs.readFileSync('index.html');
-files.css = {};
-files.css.bootstrap = fs.readFileSync('css/bootstrap.css');
-files.css.bootstrapResponsive = fs.readFileSync('css/bootstrap-responsive.css');
-files.js = {};
-files.js.zc = fs.readFileSync('js/zc.js');
-files.js.jquery = fs.readFileSync('js/jquery-2.0.3.js');
-files.js.bootstrap = fs.readFileSync('js/bootstrap.js');
-files.js.sockets = fs.readFileSync('js/sockets.js');
-files.js.bithelper = fs.readFileSync('js/bithelper.js');
-files.js.aes = fs.readFileSync('js/aes.js');
+var files = {
+	'/': { content: fs.readFileSync('index.html'), mime: mime.html },
+	'/css/bootstrap.css': {},
+	'/css/bootstrap-responsive.css': {},
+	'/js/zc.js': {},
+	'/js/jquery-2.0.3.js': {},
+	'/js/bootstrap.js': {},
+	'/js/sockets.js': {},
+	'/js/bithelper.js': {},
+	'/js/aes.js': {}
+};
+
+for (var file in files)
+	if (files[file].content == undefined) {
+		files[file].content = fs.readFileSync(file.substring(1));
+		files[file].mime = mime[file.substring(file.lastIndexOf('.') + 1)];
+	}
+
+files['/js/sockets.js'].content = (function () {
+	var previousContent = files['/js/sockets.js'].content.toString();
+	var wsServer = '\'ws://' + settings.host + ':' + settings.wsPort + '/\'';
+	var newContent = previousContent.replace('webSocketAddr', wsServer);
+	return new Buffer(newContent);
+})();
 
 var show404 = function (response) {
 	response.writeHead(404, { 'Content-Type': 'text/html' });
-	response.write('The page you requested no exists.');
+	response.write('The resourse you requested does not exist.');
 	response.end();
 };
 
@@ -30,51 +47,18 @@ var httpServer = http.createServer(function (request, response) {
 		return;
 	}
 
-	switch (request.url) {
-		case '/':
-			response.writeHead(200, { 'Content-Type': 'text/html; charset=UTF-8' });
-			response.write(files.index);
-			break;
-		case '/css/bootstrap.css':
-			response.writeHead(200, { 'Content-Type': 'text/css; charset=UTF-8' });
-			response.write(files.css.bootstrap);
-			break;
-		case '/css/bootstrap-responsive.css':
-			response.writeHead(200, { 'Content-Type': 'text/css; charset=UTF-8' });
-			response.write(files.css.bootstrapResponsive);
-			break;
-		case '/js/zc.js':
-			response.writeHead(200, { 'Content-Type': 'application/javascript; charset=UTF-8' });
-			response.write(files.js.zc);
-			break;
-		case '/js/jquery-2.0.3.js':
-			response.writeHead(200, { 'Content-Type': 'application/javascript; charset=UTF-8' });
-			response.write(files.js.jquery);
-			break;
-		case '/js/bootstrap.js':
-			response.writeHead(200, { 'Content-Type': 'application/javascript; charset=UTF-8' });
-			response.write(files.js.bootstrap);
-			break;
-		case '/js/sockets.js':
-			response.writeHead(200, { 'Content-Type': 'application/javascript; charset=UTF-8' });
-			response.write(files.js.sockets);
-			break;
-		case '/js/bithelper.js':
-			response.writeHead(200, { 'Content-Type': 'application/javascript; charset=UTF-8' });
-			response.write(files.js.bithelper);
-			break;
-		case '/js/aes.js':
-			response.writeHead(200, { 'Content-Type': 'application/javascript; charset=UTF-8' });
-			response.write(files.js.aes);
-			break;
-		default:
-			show404(response);
-			return;
+	if (files[request.url] == undefined) {
+		show404(response);
+		return;
 	}
+
+	var file = files[request.url];
+	response.writeHead(200, { 'Content-Type': file.mime });
+	response.write(file.content);
 	response.end();
 });
 
 module.exports.start = function () {
-	httpServer.listen(httpPort);
+	httpServer.listen(settings.httpPort);
 	console.log('HTTP server started.');
 };

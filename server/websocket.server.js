@@ -1,11 +1,10 @@
 var ws = require('ws');
+var settings = require('./settings');
 
 module.exports = {};
 
-var wsPort = 89;
-
 module.exports.start = function () {
-	var wsServer = new ws.Server({ port: wsPort });
+	var wsServer = new ws.Server({ port: settings.wsPort });
 	wsServer.on('connection', function (socket) {
 		socket.on('message', function (message) {
 			onMessage(socket, message);
