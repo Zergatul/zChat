@@ -6,10 +6,12 @@ $(function () {
 
 	window.secretKey = [201, 120, 8, 17, 30, 41, 109, 93, 196, 252, 55, 250, 36, 16, 101, 144];
 
+	var messageTemplate = $('#messages-div > div:first').clone();
+
 	$('#connect-btn').click(function () {
 		nick = $('#nick-input').val();
 		if (nick.length == 0) {
-			alert('Empty nick not allowed');
+			modalDialog('Validation', 'Empty nick not allowed');
 			return;
 		}
 
@@ -25,10 +27,25 @@ $(function () {
 				$('#nick-h4').text('Your nick: ' + nick);
 			}, function (msg) {
 				connection.close();
-				alert(msg);
+				modalDialog('Error while registering nick', msg);
 				$('#connection-process-div').hide();
 				$('#connect-div').show();
 			});
+		});
+
+		connection.onSocketError(function () {
+			modalDialog('Error', 'WebSocket error');
+		});
+
+		connection.onDisconnect(function () {
+			$('#connection-process-div').hide();
+			$('#choose-partner-div').hide();
+			$('#choose-partner-request-div').hide();
+			$('#choose-partner-response-div').hide();
+			$('#session-init-div').hide();
+			$('#chat-div').hide();
+			$('#connect-div').show();
+			connection = null;
 		});
 
 		connection.onChatRequest(function (partnerNick) {
@@ -61,15 +78,38 @@ $(function () {
 		connection.onMessage(function (message) {
 			addMessage('panel-warning', partnerNick, decrypt(message));
 		});
+
+		connection.onPartnerDisconnect(function () {
+			$('#choose-partner-request-div').hide();
+			$('#choose-partner-response-div').hide();
+			$('#session-init-div').hide();
+			$('#chat-div').hide();
+			$('#choose-partner-div').show();
+			modalDialog('Information', 'You partner was disconnected from server');
+		});
 	});
 
+	var intFormat = function (int) {
+		return int < 10 ? '0' + int : int.toString();
+	};
+
+	var currentDate = function () {
+		var date = new Date();
+		var hours = date.getHours();
+		var minutes = date.getMinutes();
+		var seconds = date.getSeconds();
+		return intFormat(hours) + ':' + intFormat(minutes) + ':' + intFormat(seconds);
+	};
+
 	var addMessage = function (cssClass, title, body) {
-		var msgDiv = $('#messages-div > div:first').clone();
+		var msgDiv = messageTemplate.clone();
 		msgDiv.removeClass('panel-primary');
 		msgDiv.addClass(cssClass);
-		msgDiv.find('.panel-title').text(title);
+		msgDiv.find('.panel-title:first').text(title);
+		msgDiv.find('.panel-title:last').text(currentDate());
 		msgDiv.find('.panel-body').text(body);
 		msgDiv.appendTo($('#messages-div'));
+		msgDiv.data('date', new Date());
 
 		// if contains scroll bar
 		if ($('#messages-div')[0].scrollHeight > $('#messages-div').height()) {
@@ -85,7 +125,7 @@ $(function () {
 	$('#chat-invite-btn').click(function () {
 		partnerNick = $('#partner-input').val();
 		if (partnerNick.length == 0) {
-			alert('Empty nick not allowed');
+			modalDialog('Validation', 'Empty nick not allowed');
 			return;
 		}
 		$('#choose-partner-div').hide();
@@ -125,10 +165,10 @@ $(function () {
 
 				$('#choose-partner-request-div').hide();
 				$('#choose-partner-div').show();
-				alert(msg);
+				modalDialog('Error while waiting for user response', msg);
 			});
 		}, function (msg) {
-			alert(msg);
+			modalDialog('Error while sending chat invitation', msg);
 			$('#choose-partner-request-div').hide();
 			$('#choose-partner-div').show();
 		});
@@ -193,6 +233,38 @@ $(function () {
 	$(window).resize(function () {
 		if ($('#chat-div').is(':visible'))
 			setChatDivHeight();
+	});
+
+	$('#clear-all-link').click(function () {
+		$('#messages-div').empty();
+	});
+
+	var clearMessages = function (seconds) {
+		var now = new Date();
+		$('#messages-div > div').each(function () {
+			var msgDate = $(this).data('date');
+			if (msgDate == undefined || now - msgDate >= seconds * 1000)
+				$(this).remove();
+		});
+	};
+
+	$('#clear-1min-link').click(function () { clearMessages(60); });
+	$('#clear-5min-link').click(function () { clearMessages(5 * 60); });
+	$('#clear-15min-link').click(function () { clearMessages(15 * 60); });
+	$('#clear-1hour-link').click(function () { clearMessages(60 * 60); });
+
+	var modalDialog = function (title, text) {
+		$('#modal-dialog-div .modal-title').text(title);
+		$('#modal-dialog-div .modal-body').text(text);		
+		$('#modal-dialog-div').modal();
+	};
+
+	$('#disconnect-link').click(function () {
+		connection.close();
+	});
+
+	$('#terminate-session-link').click(function () {
+		modalDialog('!', 'Not implemented');
 	});
 
 });

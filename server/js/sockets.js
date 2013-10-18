@@ -13,7 +13,8 @@
 	pck.srv.chatInviteResponse = 3;
 	pck.srv.userInviteResponse = 4;
 	pck.srv.sessionInit = 5;
-	pck.srv.message = 6;
+	pck.srv.message = 6;	
+	pck.srv.partnerDisconnect = 7;
 
 	var okMessage = 'ok';
 
@@ -24,18 +25,16 @@
 
 		this._ws = new WebSocket(webSocketAddr);
 		this._ws.onopen = function () {
-			console.log('Socket opened!');
 			if (typeof self._onConnect == 'function') {
 				self._onConnect();
 				delete self._onConnect;
 			}
 		};
 		this._ws.onclose = function (event) {
-			if (event.wasClean)
-				console.log('Socket closed');
-			else
-				console.log('Socket closed unexpectedly');
-			console.log('Code: ' + event.code + ' Reason: ' + event.reason);
+			if (typeof self._onDisconnect == 'function') {
+				self._onDisconnect();
+				delete self._onDisconnect;
+			}
 		};
 		this._ws.onmessage = function (event) {
 			var delimiterIndex = event.data.indexOf(':');
@@ -45,7 +44,14 @@
 			resolveSrvPacket(self, id, data);
 		};
 		this._ws.onerror = function (event) {
-			console.log('Error: ' + event.message);
+			if (typeof self._onSocketError == 'function') {
+				self._onSocketError();
+				delete self._onSocketError;
+			}
+			if (typeof self._onDisconnect == 'function') {
+				self._onDisconnect();
+				delete self._onDisconnect;
+			}
 		};
 	};
 
@@ -116,6 +122,14 @@
 		this._onConnect = func;
 	};
 
+	window.Connection.prototype.onSocketError = function (func) {
+		this._onSocketError = func;
+	};
+
+	window.Connection.prototype.onDisconnect = function (func) {
+		this._onDisconnect = func;
+	};
+
 	window.Connection.prototype.onChatRequest = function (func) {
 		setupHandler(this, pck.srv.otherUserChatInvite, func, true);
 	};
@@ -126,6 +140,10 @@
 
 	window.Connection.prototype.onMessage = function (func) {
 		setupHandler(this, pck.srv.message, func, true);
+	};
+
+	window.Connection.prototype.onPartnerDisconnect = function (func) {
+		setupHandler(this, pck.srv.partnerDisconnect, func, true);
 	};
 
 })();

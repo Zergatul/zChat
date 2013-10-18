@@ -6,6 +6,7 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<link href="css/bootstrap.css" rel="stylesheet" />
 	<script src="js/jquery-2.0.3.js"></script>
+	<script src="js/bootstrap.js"></script>
 	<script src="js/sockets.js"></script>
 	<script src="js/zc.js"></script>
 	<script src="js/bithelper.js"></script>
@@ -15,7 +16,7 @@
 	<div class="text-center">
 		<h3>zChat</h3>
 
-		<div class="input-group" id="connect-div" style="width: 400px; margin: 0 auto;">
+		<div id="connect-div" class="input-group" style="width: 400px; margin: 0 auto;">
 			<input type="text" class="form-control" placeholder="Your nick" id="nick-input" />
 			<span class="input-group-btn">
 				<button class="btn btn-success" type="button" id="connect-btn">Connect</button>
@@ -76,7 +77,9 @@
 			<div id="messages-div" style="margin-bottom: 5px; overflow-y: auto; height: 100px;">
 				<div class="panel panel-primary" style="margin-bottom: 5px;">
 					<div class="panel-heading" style="padding: 4px 15px 3px 15px;">
-						<h3 class="panel-title" style="font-size: 15px;">Welcome!</h3>
+						<div style="float: left;"><h3 class="panel-title" style="font-size: 15px;">Welcome!</h3></div>
+						<div style="float: right;"><h3 class="panel-title" style="font-size: 15px;"></h3></div>
+						<div style="clear: both;"></div>
 					</div>
 					<div class="panel-body" style="padding: 3px 15px;">
 						Chat session begins.
@@ -85,12 +88,41 @@
 			</div>
 			<div class="input-group" id="text-input-div" style="width: 100%;">
 				<input type="text" class="form-control" />
-				<span class="input-group-btn">
+				<span class="input-group-btn dropup">
 					<button class="btn btn-primary" type="button" id="send-btn">Send</button>
+					<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">
+						Options <span class="caret"></span>
+					</button>
+					<ul class="dropdown-menu" role="menu">
+						<li><a style="cursor: pointer;" id="clear-all-link">Clear all messages</a></li>
+						<li><a style="cursor: pointer;" id="clear-1min-link">Clear messages older than 1 minute</a></li>
+						<li><a style="cursor: pointer;" id="clear-5min-link">Clear messages older than 5 minutes</a></li>
+						<li><a style="cursor: pointer;" id="clear-15min-link">Clear messages older than 15 minutes</a></li>
+						<li><a style="cursor: pointer;" id="clear-1hour-link">Clear messages older than 1 hour</a></li>
+						<li class="divider"></li>
+						<li><a style="cursor: pointer;" id="terminate-session-link">Terminate session</a></li>
+						<li><a style="cursor: pointer;" id="disconnect-link">Disconnect from server</a></li>
+					</ul>
 				</span>
 			</div>
 		</div>
 
 	</div>
+
+	<div class="modal fade" id="modal-dialog-div" tabindex="-1" role="dialog" aria-hidden="true">
+		<div class="modal-dialog">
+			<div class="modal-content">
+				<div class="modal-header">
+					<button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+					<h4 class="modal-title"></h4>
+				</div>
+				<div class="modal-body"></div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-success" data-dismiss="modal">OK</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
 </body>
 </html>
