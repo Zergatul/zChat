@@ -13,6 +13,7 @@ files.css.bootstrapResponsive = fs.readFileSync('css/bootstrap-responsive.css');
 files.js = {};
 files.js.zc = fs.readFileSync('js/zc.js');
 files.js.jquery = fs.readFileSync('js/jquery-2.0.3.js');
+files.js.bootstrap = fs.readFileSync('js/bootstrap.js');
 files.js.sockets = fs.readFileSync('js/sockets.js');
 files.js.bithelper = fs.readFileSync('js/bithelper.js');
 files.js.aes = fs.readFileSync('js/aes.js');
@@ -49,6 +50,10 @@ var httpServer = http.createServer(function (request, response) {
 		case '/js/jquery-2.0.3.js':
 			response.writeHead(200, { 'Content-Type': 'application/javascript; charset=UTF-8' });
 			response.write(files.js.jquery);
+			break;
+		case '/js/bootstrap.js':
+			response.writeHead(200, { 'Content-Type': 'application/javascript; charset=UTF-8' });
+			response.write(files.js.bootstrap);
 			break;
 		case '/js/sockets.js':
 			response.writeHead(200, { 'Content-Type': 'application/javascript; charset=UTF-8' });
