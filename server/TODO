@@ -1,0 +1,3 @@
+create fine setting with autogenerating js-file
+timer for returning users back no initial state, if user did not response to chat invite
+close event for socket on server and client
