@@ -88,4 +88,38 @@
 		return bytes;
 	};
 
+	window.bh.stringToByteArray = function (str) {
+		var array = new Array(str.length * 2);
+		for (var i = 0; i < str.length; i++) {
+			var code = str.charCodeAt(i);
+			array[2 * i] = code & 0xff;
+			array[2 * i + 1] = (code >>> 8) & 0xff;
+		}
+		return array;
+	};
+
+	window.bh.byteArrayToString = function (bytes) {
+		var str = '';
+		for (var i = 0; i < bytes.length >>> 1; i++) {
+			var code = 0;
+			code = code | bytes[2 * i];
+			code = code | (bytes[2 * i + 1] << 8);
+			str += String.fromCharCode(code);
+		}
+		return str;
+	};
+
+	window.bh.paddings = {};
+
+	window.bh.paddings.zero = {
+		pad: function (bytes, multiplicity) {
+			while (bytes.length % multiplicity != 0)
+				bytes.push(0);
+		},
+		unpad: function (bytes) {
+			while (bytes[bytes.length - 1] == 0)
+				bytes.pop();
+		}
+	};
+
 })();
