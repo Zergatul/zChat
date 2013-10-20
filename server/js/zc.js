@@ -227,7 +227,7 @@ $(function () {
 	};
 
 	var setChatDivHeight = function () {
-		$('#messages-div').css('height', ($(window).height() - 140) + 'px');
+		$('#messages-div').css('height', ($(window).height() - 150) + 'px');
 	};
 
 	$(window).resize(function () {
