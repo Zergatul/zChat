@@ -31,28 +31,6 @@
 		return (data[dataIndex] & (1 << bitIndex)) != 0;
 	};
 
-	window.BigInt.prototype._setBit = function (index, value) {
-		throw 'Not implemented';
-
-		if (index < 0)
-			throw 'Invalid argument';
-		if (value != 0 && value != 1)
-			throw 'Invalid argument';
-
-		var dataIndex = index >>> 4;
-		var data = this._data;
-		var length = data.length;
-		if (dataIndex > length)
-			throw 'Not implemented';
-
-		var bitIndex = index & 0xf;
-		if (value == 0) {
-			data[dataIndex] = data[dataIndex] & ~(1 << bitIndex);
-			truncateZeros(this);
-		} else
-			data[dataIndex] = data[dataIndex] | (1 << bitIndex);
-	};
-
 	window.BigInt.prototype.trailingZerosCount = function () {
 		var count = 0;
 		while (!this.isBitSet(count))
@@ -240,9 +218,13 @@
 		var sign2 = val._sign;
 		if (sign1 == 0 || sign2 == 0)
 			return BigInt.ZERO;
-		var length = this._length + val._length;
-		var data = new Uint16Array(length);
-		multGeneral(this, val, data, 0);
+		var length1 = this._length;
+		var length2 = val._length;
+		if (length1 >= length2)
+			var data = multGeneral(this._data, length1, val._data, length2);
+		else
+			var data = multGeneral(val._data, length2, this._data, length1);
+		var length = data.length;
 		while (data[length - 1] == 0)
 			length--;
 		result = new BigInt();
@@ -470,75 +452,135 @@
 		return false;
 	};
 
-	var multGeneral = function (num1, num2, acc, shift) {
-		var length1 = num1._length;
-		var length2 = num2._length;
-		if (length1 < length2) {
-			var buf = num1;
-			num1 = num2;
-			num2 = buf;
-			buf = length1;
-			length1 = length2;
-			length2 = buf;
-		};
-
+	// assumes length1 >= length2
+	var multGeneral = function (data1, length1, data2, length2) {
 		if (length2 == 0)
-			return;
+			return new Uint16Array();
+
+		var result = new Uint16Array(length1 + length2);
 		if (length2 == 1) {
 			var sum = 0;
-			var int16 = num2._data[0];
-			var data1 = num1._data;
+			var int16 = data2[0];
 			for (var i = 0; i < length1; i++) {
-				sum = sum + acc[i + shift] + int16 * data1[i];
-				acc[i + shift] = sum & 0xffff;
+				sum = sum + int16 * data1[i];
+				result[i] = sum & 0xffff;
 				sum = sum >>> 16;
 			}
-			return;
+			if (sum != 0)
+				result[i] = sum;
+			return result;
 		}
 		
-		var data1 = num1._data;
-		var data2 = num2._data;
-		if (length2 <= 16) {
+		// constant can calculate from _multiplyPerfTest
+		if (length2 <= 50) {
 			// O(n^2) algo
 			for (var s = 0; s < length1 + length2 - 1; s++)
 				for (var i1 = s < length2 ? 0 : s - length2 + 1; i1 <= s && i1 < length1; i1++) {
 					var i2 = s - i1;
-					var sum = acc[shift + s] + data1[i1] * data2[i2];
-					acc[shift + s] = sum & 0xffff;
-					acc[shift + s + 1] += sum >>> 16;
+					var product = data1[i1] * data2[i2];
+					var sum = result[s] + (product & 0xffff);
+					result[s] = sum & 0xffff;
+					sum = result[s + 1] + (sum >>> 16) + (product >>> 16);
+					result[s + 1] = sum & 0xffff;
+					sum = sum >>> 16;
+					var index = s + 2;
+					while (sum != 0) {
+						sum = sum + result[index];
+						result[index++] = sum & 0xffff;
+						sum = sum >>> 16;
+					}
 				}
+			return result;
 		} else {
 			// O(n^1.59) algo, http://en.wikipedia.org/wiki/Karatsuba_algorithm
-			throw 'Not implemented';
-			return multKaratsuba(num1, num2);
+			var halfLen = length2 >>> 1;
+
+			var low1 = data1.subarray(0, halfLen);
+			var low2 = data2.subarray(0, halfLen);
+			var high1 = data1.subarray(halfLen);
+			var high2 = data2.subarray(halfLen);
+
+			var z0 = multGeneral(low1, halfLen, low2, halfLen);
+			var z0Length = z0.length;
+			if (z0[z0Length - 1] == 0)
+				z0Length--;
+
+			var sum1 = new Uint16Array(length1 - halfLen + 1);
+			sum1.set(high1);
+			var sum = 0;
+			for (var i = 0; i < halfLen; i++) {
+				sum = sum + sum1[i] + low1[i];
+				sum1[i] = sum & 0xffff;
+				sum = sum >>> 16;
+			}
+			while (sum != 0) {
+				sum = sum + sum1[i];
+				sum1[i++] = sum & 0xffff;
+				sum = sum >>> 16;
+			}
+			var sum1Length = sum1[length1 - halfLen] == 0 ? length1 - halfLen : length1 - halfLen + 1;
+			var sum2 = new Uint16Array(length2 - halfLen + 1);
+			sum2.set(high2);
+			var sum = 0;
+			for (var i = 0; i < halfLen; i++) {
+				sum = sum + sum2[i] + low2[i];
+				sum2[i] = sum & 0xffff;
+				sum = sum >>> 16;
+			}
+			if (sum != 0)
+				sum2[i++] += sum;
+			var sum2Length = sum2[length2 - halfLen] == 0 ? length2 - halfLen : length2 - halfLen + 1;
+			var z1 = multGeneral(sum1, sum1Length, sum2, sum2Length);
+			var z1Length = z1.length;
+			if (z1[z1Length - 1] == 0)
+				z1Length--;
+
+			var z2 = multGeneral(high1, length1 - halfLen, high2, length2 - halfLen);
+			var z2Length = z2.length;
+			if (z2[z2Length - 1] == 0)
+				z2Length--;
+
+			// result += z2 << (halfLen * 2)
+			result.set(z2, halfLen << 1)
+			// result += z0
+			result.set(z0, 0);
+
+			// z1 = z1 - z2 - z0
+			var diff = 0;
+			for (var i = 0; i < z1Length; i++) {
+				var sum = diff + z1[i];
+				if (i < z2Length)
+					sum -= z2[i];
+				if (i < z0Length)
+					sum -= z0[i];
+				if (sum >= 0) {
+					z1[i] = sum;
+					diff = 0;
+				} else
+					if (sum >= -0x10000) {
+						z1[i] = sum + 0x10000;
+						diff = -1;
+					} else {
+						z1[i] = sum + 0x20000;
+						diff = -2;
+					}
+			}
+
+			// result += z1 << halfLen
+			var sum = 0;
+			for (var i = 0; i < z1Length; i++) {
+				sum = sum + result[i + halfLen] + z1[i];
+				result[i + halfLen] = sum & 0xffff;
+				sum = sum >>> 16;
+			}
+			while (sum != 0) {
+				sum = sum + result[i + halfLen];
+				result[(i++) + halfLen] = sum & 0xffff;
+				sum = sum >>> 16;
+			}
+
+			return result;
 		}
-	};
-
-	var multKaratsuba = function (num1, num2) {
-		var digits = num2._data.length >>> 1;
-		var s1 = split(num1, digits);
-		var s2 = split(num2, digits);
-		var a0 = s1.n1, a1 = s1.n0, b0 = s2.n1, b1 = s2.n0;
-
-		var a0b0 = multGeneral(a0, b0);
-		var a1b1 = multGeneral(a1, b1);
-		var m = multGeneral(BigInt.add(a0, a1), BigInt.add(b0, b1));
-		m = BigInt.sub(BigInt.sub(m, a0b0), a1b1);
-		return BigInt.add(BigInt.add(a0b0, shl16Bit(m, digits)), shl16Bit(a1b1, 2 * digits));
-	};
-
-	var split = function (num, digits) {
-		var n0 = new BigInt();
-		n0._data = new Array(num._data.length - digits);
-		var n1 = new BigInt();
-		n1._data = new Array(digits);
-
-		for (var i = 0; i < digits; i++)
-			n1._data[i] = num._data[i];
-		for (var i = 0; i < n0._data.length; i++)
-			n0._data[i] = num._data[digits + i];
-
-		return { n0: n0, n1: n1 };
 	};
 
 	var mQuote = function (b) {
@@ -587,16 +629,6 @@
 		return result;
 	};
 
-	window.BigInt.fromHex = function (str) {
-		var byteArray = bh.hexToByteArray(str);
-		if (byteArray.length % 2 == 1)
-			byteArray.push(0);
-		var result = new BigInt();
-		for (var i = byteArray.length / 2 - 1; i >= 0; i--)
-			result._data.push((byteArray[(i << 1) + 1] << 8) + byteArray[i << 1]);
-		return result;
-	};
-
 	window.BigInt.parse = function (str, radix) {
 		if (typeof str != 'string')
 			throw 'Invalid parameter';
@@ -620,51 +652,6 @@
 		}
 
 		return result;
-	};
-
-	window.BigInt.random = function (maxValue) {
-		if (!(maxValue instanceof BigInt))
-			throw 'Invalid parameter';
-
-		if (maxValue.isZero())
-			return new BigInt();
-
-		maxValue = BigInt.sub(maxValue, BigInt.fromInt(1));
-
-		var result = new BigInt();
-		var length = maxValue._data.length;
-		result._data = new Array(length);
-		var canBeAny = false;
-		for (var i = length - 1; i >= 0; i--)
-			if (canBeAny) {
-				result._data[i] = Math.floor(Math.random() * 0x10000);
-			} else {
-				var part = Math.floor(Math.random() * (maxValue._data[i] + 1));
-				if (part < maxValue._data[i])
-					canBeAny = true;
-				result._data[i] = part;
-			}
-
-		truncateZeros(result);
-
-		return result;
-	};
-
-	window.BigInt.randomFromInterval = function (minValue, maxValue) {
-		if (!(minValue instanceof BigInt) || !(maxValue instanceof BigInt))
-			throw 'Invalid parameter';
-		if (minValue.compareTo(maxValue) >= 0)
-			throw 'First parameter must be smaller then second';
-
-		return BigInt.add(minValue, BigInt.random(BigInt.sub(maxValue, minValue)));
-	};
-
-	window.BigInt.randomForBitLength = function (bitLength) {
-		var from = new BigInt();
-		from.setBit(bitLength, 1);
-		var to = new BigInt();
-		to.setBit(bitLength + 1, 1);
-		return BigInt.randomFromInterval(from, to);
 	};
 
 	window.BigInt.randomPrime = function (bitLength) {

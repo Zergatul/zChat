@@ -183,4 +183,28 @@
 		foo(512, 2);*/
 	};
 
+	window._multiplyPerfTest = function (karParamFrom, karParamTo) {
+
+		var a = new BigInt();
+		a._sign = 1;
+		a._length = random.default.nextRange(1000, 2000);
+		a._data = random.default.getUint16Array(a._length);
+
+		var b = new BigInt();
+		b._sign = 1;
+		b._length = random.default.nextRange(1000, 2000);
+		b._data = random.default.getUint16Array(b._length);	
+
+		var sw = new Stopwatch();
+		for (window.kp = karParamFrom; window.kp <= karParamTo; window.kp += 5) {
+			console.log('Param = ' + window.kp);
+			sw.reset();
+			sw.start();
+			for (var i = 0; i < 100; i++)
+				a.multiply(b);
+			sw.stop();
+			console.log(sw.totalElapsed() + 'ms');
+		}
+	};
+
 })();
