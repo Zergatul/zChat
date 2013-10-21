@@ -77,6 +77,9 @@ var onMessage = function (socket, message) {
 
 var onClose = function (socket) {
 	var user = users[socket._nick];
+	if (user == undefined)
+		return;
+	
 	delete users[socket._nick];
 
 	if (user.state == state.CHATTING_PRIMARY || user.state == state.CHATTING_SECONDARY) {
