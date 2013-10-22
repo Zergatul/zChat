@@ -9,26 +9,16 @@
 		this._sign = 0;
 	};
 
-	window.BigInt.prototype.isZero = function () {
-		return this._sign == 0;
-	};
-
-	window.BigInt.prototype.isOne = function () {
-		return this._length == 1 && this._data[0] == 1;
-	};
-
 	window.BigInt.prototype.isBitSet = function (index) {
 		if (index < 0)
 			throw 'Invalid argument';
 
 		var dataIndex = index >>> 4;
-		var data = this._data;
-		var length = data.length;
-		if (dataIndex > length)
+		if (dataIndex > this._length)
 			return false;
 
 		var bitIndex = index & 0xf;
-		return (data[dataIndex] & (1 << bitIndex)) != 0;
+		return (this._data[dataIndex] & (1 << bitIndex)) != 0;
 	};
 
 	window.BigInt.prototype.trailingZerosCount = function () {
@@ -64,22 +54,16 @@
 		return true;
 	};
 
-	window.BigInt.prototype.compareTo = function (other) {
-		var length1 = this._length;
-		var length2 = other._length;		
-		if (length1 < length2)
+	window.BigInt.prototype.compareTo = function (val) {
+		var sign1 = this._sign;
+		var sign2 = val._sign;
+		if (sign1 < sign2)
 			return -1;
-		if (length1 > length2)
+		if (sign1 > sign2)
 			return 1;
-		var data1 = this._data;
-		var data2 = other._data;
-		for (var i = length1 - 1; i >= 0; i--) {
-			if (data1[i] < data2[i])
-				return -1;
-			if (data1[i] > data2[i])
-				return 1;
-		}
-		return 0;
+		if (sign1 == 0)
+			return 0;
+		return sign1 == 1 ? this.absCompareTo(val) : -this.absCompareTo(val);
 	};
 
 	window.BigInt.prototype.absCompareTo = function (val) {
@@ -117,25 +101,26 @@
 			while (index >= 0) {
 				var int16 = data[index--].toString(radix);
 				if (int16.length < digitsCount)
-					int16 = new Array(digitsCount + 1 - int16.length).join('0') + int16;
+					int16 = zeros[digitsCount - int16.length] + int16;
 				result += int16;
 			}
 			return result;
-		}
-		{
-			throw 'Not implemented';
-			// general case
-			var radixBigInt = BigInt.fromInt(radix);
+		} else {
+			var radixLength = digitsPerUint16[radix];
+			var radixUint16 = uint16Radix[radix];
+			var length = this._length;
 			var result = '';
-			var num = this;
-			var length = BigInt.logFloor(this, radix) + 1;
-			for (var i = 0; i < length; i++) {
-				var dm = divMod(num, radixBigInt);
-				result = (dm.mod.isZero() ? '0' : dm.mod._data[0].toString(16)) + result;
-				num = dm.div;
+			while (length > 0) {
+				var div = divideByUint16(data, length, radixUint16);
+				var rem = div.remainder.toString(radix);
+				if (length != 1 && rem.length < radixLength)
+					rem = zeros[radixLength - rem.length] + rem;
+				result = rem + result;
+				data = div.quotient;
+				length = data.length;
+				if (data[length - 1] == 0)
+					length--;
 			}
-			if (this._sign == 0)
-				result = '-' + result;
 			return result;
 		}
 	};
@@ -150,7 +135,7 @@
 	};
 
 	window.BigInt.prototype.toByteArray = function () {
-		var result = new Uint8Array(this._data.length * 2);
+		var result = new Uint8Array(this._data.length << 1);
 		var index = 0;
 		for (var i = this._data.length - 1; i >= 0; i--) {
 			result[index++] = this._data[i] >>> 8;
@@ -302,6 +287,159 @@
 		return result;
 	};
 
+	// assumes length1 >= length2
+	var multGeneral = function (data1, length1, data2, length2) {
+		if (length2 == 0)
+			return new Uint16Array();
+
+		var result = new Uint16Array(length1 + length2);
+		if (length2 == 1) {
+			var sum = 0;
+			var int16 = data2[0];
+			for (var i = 0; i < length1; i++) {
+				sum = sum + int16 * data1[i];
+				result[i] = sum & 0xffff;
+				sum = sum >>> 16;
+			}
+			if (sum != 0)
+				result[i] = sum;
+			return result;
+		}
+		
+		// constant can calculate from _multiplyPerfTest
+		if (length2 <= 50) {
+			// O(n^2) algo
+			for (var s = 0; s < length1 + length2 - 1; s++)
+				for (var i1 = s < length2 ? 0 : s - length2 + 1; i1 <= s && i1 < length1; i1++) {
+					var i2 = s - i1;
+					var product = data1[i1] * data2[i2];
+					var sum = result[s] + (product & 0xffff);
+					result[s] = sum & 0xffff;
+					sum = result[s + 1] + (sum >>> 16) + (product >>> 16);
+					result[s + 1] = sum & 0xffff;
+					sum = sum >>> 16;
+					var index = s + 2;
+					while (sum != 0) {
+						sum = sum + result[index];
+						result[index++] = sum & 0xffff;
+						sum = sum >>> 16;
+					}
+				}
+			return result;
+		} else {
+			// O(n^1.59) algo, http://en.wikipedia.org/wiki/Karatsuba_algorithm
+			var halfLen = length2 >>> 1;
+
+			var low1 = data1.subarray(0, halfLen);
+			var low2 = data2.subarray(0, halfLen);
+			var high1 = data1.subarray(halfLen);
+			var high2 = data2.subarray(halfLen);
+
+			var z0 = multGeneral(low1, halfLen, low2, halfLen);
+			var z0Length = z0.length;
+			if (z0[z0Length - 1] == 0)
+				z0Length--;
+
+			var sum1 = new Uint16Array(length1 - halfLen + 1);
+			sum1.set(high1);
+			var sum = 0;
+			for (var i = 0; i < halfLen; i++) {
+				sum = sum + sum1[i] + low1[i];
+				sum1[i] = sum & 0xffff;
+				sum = sum >>> 16;
+			}
+			while (sum != 0) {
+				sum = sum + sum1[i];
+				sum1[i++] = sum & 0xffff;
+				sum = sum >>> 16;
+			}
+			var sum1Length = sum1[length1 - halfLen] == 0 ? length1 - halfLen : length1 - halfLen + 1;
+			var sum2 = new Uint16Array(length2 - halfLen + 1);
+			sum2.set(high2);
+			var sum = 0;
+			for (var i = 0; i < halfLen; i++) {
+				sum = sum + sum2[i] + low2[i];
+				sum2[i] = sum & 0xffff;
+				sum = sum >>> 16;
+			}
+			if (sum != 0)
+				sum2[i++] += sum;
+			var sum2Length = sum2[length2 - halfLen] == 0 ? length2 - halfLen : length2 - halfLen + 1;
+			var z1 = multGeneral(sum1, sum1Length, sum2, sum2Length);
+			var z1Length = z1.length;
+			if (z1[z1Length - 1] == 0)
+				z1Length--;
+
+			var z2 = multGeneral(high1, length1 - halfLen, high2, length2 - halfLen);
+			var z2Length = z2.length;
+			if (z2[z2Length - 1] == 0)
+				z2Length--;
+
+			// result += z2 << (halfLen * 2)
+			result.set(z2, halfLen << 1)
+			// result += z0
+			result.set(z0, 0);
+
+			// z1 = z1 - z2 - z0
+			var diff = 0;
+			for (var i = 0; i < z1Length; i++) {
+				var sum = diff + z1[i];
+				if (i < z2Length)
+					sum -= z2[i];
+				if (i < z0Length)
+					sum -= z0[i];
+				if (sum >= 0) {
+					z1[i] = sum;
+					diff = 0;
+				} else
+					if (sum >= -0x10000) {
+						z1[i] = sum + 0x10000;
+						diff = -1;
+					} else {
+						z1[i] = sum + 0x20000;
+						diff = -2;
+					}
+			}
+
+			// result += z1 << halfLen
+			var sum = 0;
+			for (var i = 0; i < z1Length; i++) {
+				sum = sum + result[i + halfLen] + z1[i];
+				result[i + halfLen] = sum & 0xffff;
+				sum = sum >>> 16;
+			}
+			while (sum != 0) {
+				sum = sum + result[i + halfLen];
+				result[(i++) + halfLen] = sum & 0xffff;
+				sum = sum >>> 16;
+			}
+
+			return result;
+		}
+	};
+
+	// assumes divisor is Uint16
+	var divideByUint16 = function (data, length, divisor) {
+		data = data.subarray(0, length);
+		var quotient = new Uint16Array(length);
+		var index = length - 1;
+		while (index >= 0) {
+			var d = data[index];
+			if (index != length - 1)
+				d = d | (data[index + 1] << 16);
+			var e = Math.floor(d / divisor);
+			quotient[index] = e;
+
+			var diff = data[index] - e * divisor;
+			data[index] = diff & 0xffff;
+
+			index--;
+		}
+		return { quotient: quotient, remainder: data[0] };
+	};
+
+	// ******************************************
+
 	var cmpWithShift = function (num1, num2, shift) {
 		var intPart = shift >>> 4;
 		var bitPart = shift & 0xf;
@@ -452,136 +590,7 @@
 		return false;
 	};
 
-	// assumes length1 >= length2
-	var multGeneral = function (data1, length1, data2, length2) {
-		if (length2 == 0)
-			return new Uint16Array();
-
-		var result = new Uint16Array(length1 + length2);
-		if (length2 == 1) {
-			var sum = 0;
-			var int16 = data2[0];
-			for (var i = 0; i < length1; i++) {
-				sum = sum + int16 * data1[i];
-				result[i] = sum & 0xffff;
-				sum = sum >>> 16;
-			}
-			if (sum != 0)
-				result[i] = sum;
-			return result;
-		}
-		
-		// constant can calculate from _multiplyPerfTest
-		if (length2 <= 50) {
-			// O(n^2) algo
-			for (var s = 0; s < length1 + length2 - 1; s++)
-				for (var i1 = s < length2 ? 0 : s - length2 + 1; i1 <= s && i1 < length1; i1++) {
-					var i2 = s - i1;
-					var product = data1[i1] * data2[i2];
-					var sum = result[s] + (product & 0xffff);
-					result[s] = sum & 0xffff;
-					sum = result[s + 1] + (sum >>> 16) + (product >>> 16);
-					result[s + 1] = sum & 0xffff;
-					sum = sum >>> 16;
-					var index = s + 2;
-					while (sum != 0) {
-						sum = sum + result[index];
-						result[index++] = sum & 0xffff;
-						sum = sum >>> 16;
-					}
-				}
-			return result;
-		} else {
-			// O(n^1.59) algo, http://en.wikipedia.org/wiki/Karatsuba_algorithm
-			var halfLen = length2 >>> 1;
-
-			var low1 = data1.subarray(0, halfLen);
-			var low2 = data2.subarray(0, halfLen);
-			var high1 = data1.subarray(halfLen);
-			var high2 = data2.subarray(halfLen);
-
-			var z0 = multGeneral(low1, halfLen, low2, halfLen);
-			var z0Length = z0.length;
-			if (z0[z0Length - 1] == 0)
-				z0Length--;
-
-			var sum1 = new Uint16Array(length1 - halfLen + 1);
-			sum1.set(high1);
-			var sum = 0;
-			for (var i = 0; i < halfLen; i++) {
-				sum = sum + sum1[i] + low1[i];
-				sum1[i] = sum & 0xffff;
-				sum = sum >>> 16;
-			}
-			while (sum != 0) {
-				sum = sum + sum1[i];
-				sum1[i++] = sum & 0xffff;
-				sum = sum >>> 16;
-			}
-			var sum1Length = sum1[length1 - halfLen] == 0 ? length1 - halfLen : length1 - halfLen + 1;
-			var sum2 = new Uint16Array(length2 - halfLen + 1);
-			sum2.set(high2);
-			var sum = 0;
-			for (var i = 0; i < halfLen; i++) {
-				sum = sum + sum2[i] + low2[i];
-				sum2[i] = sum & 0xffff;
-				sum = sum >>> 16;
-			}
-			if (sum != 0)
-				sum2[i++] += sum;
-			var sum2Length = sum2[length2 - halfLen] == 0 ? length2 - halfLen : length2 - halfLen + 1;
-			var z1 = multGeneral(sum1, sum1Length, sum2, sum2Length);
-			var z1Length = z1.length;
-			if (z1[z1Length - 1] == 0)
-				z1Length--;
-
-			var z2 = multGeneral(high1, length1 - halfLen, high2, length2 - halfLen);
-			var z2Length = z2.length;
-			if (z2[z2Length - 1] == 0)
-				z2Length--;
-
-			// result += z2 << (halfLen * 2)
-			result.set(z2, halfLen << 1)
-			// result += z0
-			result.set(z0, 0);
-
-			// z1 = z1 - z2 - z0
-			var diff = 0;
-			for (var i = 0; i < z1Length; i++) {
-				var sum = diff + z1[i];
-				if (i < z2Length)
-					sum -= z2[i];
-				if (i < z0Length)
-					sum -= z0[i];
-				if (sum >= 0) {
-					z1[i] = sum;
-					diff = 0;
-				} else
-					if (sum >= -0x10000) {
-						z1[i] = sum + 0x10000;
-						diff = -1;
-					} else {
-						z1[i] = sum + 0x20000;
-						diff = -2;
-					}
-			}
-
-			// result += z1 << halfLen
-			var sum = 0;
-			for (var i = 0; i < z1Length; i++) {
-				sum = sum + result[i + halfLen] + z1[i];
-				result[i + halfLen] = sum & 0xffff;
-				sum = sum >>> 16;
-			}
-			while (sum != 0) {
-				sum = sum + result[i + halfLen];
-				result[(i++) + halfLen] = sum & 0xffff;
-				sum = sum >>> 16;
-			}
-
-			return result;
-		}
-	};
+	
 
 	var mQuote = function (b) {
 		var a = 0x10000;
@@ -693,64 +702,6 @@
 		return result;
 	};
 
-	window.BigInt.add = function (num1, num2) {
-		if (!(num1 instanceof BigInt) || !(num2 instanceof BigInt))
-			throw 'Invalid parameters';
-
-		if (num1._sign == num2._sign) {
-			var result = addAbs(num1, num2);
-			result._sign = num1._sign;
-		} else {
-			var cmpResult = compareAbs(num1, num2);
-			if (cmpResult == 0)
-				return new BigInt();
-			if (cmpResult < 0) {
-				result = subAbs(num2, num1);
-				result._sign = num1._sign == 0 ? 1 : 0;
-			} else {
-				result = subAbs(num1, num2);
-				result._sign = num1._sign == 0 ? 0 : 1;
-			}
-		}
-
-		return result;
-	};
-
-	window.BigInt.sub = function (num1, num2) {
-		if (!(num1 instanceof BigInt) || !(num2 instanceof BigInt))
-			throw 'Invalid parameters';
-
-		if (num1._sign == num2._sign) {
-			var cmpResult = compareAbs(num1, num2);
-			if (cmpResult == 0)
-				return new BigInt();
-			if (cmpResult < 0) {
-				result = subAbs(num2, num1);
-				result._sign = num1._sign == 0 ? 1 : 0;
-			} else {
-				result = subAbs(num1, num2);
-				result._sign = num1._sign == 0 ? 0 : 1;
-			}
-		} else {
-			var result = addAbs(num1, num2);
-			result._sign = num1._sign;
-		}
-
-		return result;
-	};
-
-	window.BigInt.mult = function (num1, num2) {
-		if (!(num1 instanceof BigInt) || !(num2 instanceof BigInt))
-			throw 'Invalid parameters';
-
-		if (num1.isZero() || num2.isZero())
-			return new BigInt();
-
-		var result = multGeneral(num1, num2);
-		result._sign = num1._sign == num2._sign ? 1 : 0;
-		return result;
-	};
-
 	window.BigInt.div = function (num1, num2) {
 		if (!(num1 instanceof BigInt) || !(num2 instanceof BigInt))
 			throw 'Invalid parameters';
@@ -854,5 +805,21 @@
 			A = subAbs(A, m);
 		return A;
 	};
+
+	// used by toString
+	var digitsPerUint16 = new Uint8Array(37);
+	var uint16Radix = new Uint16Array(37);
+	for (var i = 2; i < 37; i++) {
+		digitsPerUint16[i] = 1;
+		uint16Radix[i] = i;
+		while (uint16Radix[i] * i <= 0xffff) {
+			uint16Radix[i] *= i;
+			digitsPerUint16[i]++;
+		}
+	}
+	var zeros = new Array(16);
+	for (var i = 0; i < 16; i++)
+		zeros[i] = new Array(i + 1).join('0');
+
 
 })();
