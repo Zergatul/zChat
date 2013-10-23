@@ -262,6 +262,8 @@
 	};
 
 	window.sha2 = function (bytes, version) {
+		if (bytes instanceof Array)
+			bytes = new Uint8Array(bytes);
 		if (!(bytes instanceof Uint8Array))
 			throw 'Invalid argument';
 		if (version == undefined)
