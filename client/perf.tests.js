@@ -174,6 +174,34 @@
 		}
 	};
 
+	window._md5PerfTest = function () {
+		var array = new Uint8Array(16);
+		for (var i = 0; i < array.length; i++)
+			array[i] = random.default.nextUint8();
+		var count = 100000;
+		var sw = new Stopwatch();
+		sw.start();
+		for (var i = 0; i < count; i++)
+			md5(array);
+		sw.stop();
+
+		console.log(count + ' hashes from ' + array.length + ' byte messages in ' + sw.totalElapsed() + ' ms');
+	};
+
+	window._sha1PerfTest = function () {
+		var array = new Uint8Array(20);
+		for (var i = 0; i < array.length; i++)
+			array[i] = random.default.nextUint8();
+		var count = 100000;
+		var sw = new Stopwatch();
+		sw.start();
+		for (var i = 0; i < count; i++)
+			sha1(array);
+		sw.stop();
+
+		console.log(count + ' hashes from ' + array.length + ' byte messages in ' + sw.totalElapsed() + ' ms');
+	};
+
 	window._tmp = function () {
 		var sw = new Stopwatch();
 
