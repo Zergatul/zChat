@@ -54,13 +54,12 @@
 
 	window.random.SHA2PRNG = new StreamRandom();
 	window.random.SHA2PRNG.init = function (seed) {
+		if (seed instanceof Array)
+			seed = new Uint8Array(seed);
 		if (!(seed instanceof Uint8Array))
 			throw 'Invalid parameter';
-		if (seed.length < 32) {
-			var buf = new Uint8Array(32);
-			buf.set(seed, 0);
-			seed = buf;
-		}	
+		if (seed.length == 0)
+			seed = new Uint8Array([0]);
 		this._state = seed;
 	};
 	window.random.SHA2PRNG._fillData = function () {
@@ -81,6 +80,12 @@
 			sum = this._state[index] + carry;
 			this._state[index++] = sum & 0xff;
 			carry = sum >>> 8;
+		}
+		if (carry != 0) {
+			var buf = new Uint8Array(this._state.length + 1);
+			buf.set(this._state, 0);
+			buf[this._state.length] = carry;
+			this._state = buf;
 		}
 	};
 
