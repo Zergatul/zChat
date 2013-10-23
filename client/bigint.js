@@ -63,10 +63,10 @@
 			return 1;
 		if (sign1 == 0)
 			return 0;
-		return sign1 == 1 ? this.absCompareTo(val) : -this.absCompareTo(val);
+		return sign1 == 1 ? this.unsignedCompareTo(val) : -this.unsignedCompareTo(val);
 	};
 
-	window.BigInt.prototype.absCompareTo = function (val) {
+	window.BigInt.prototype.unsignedCompareTo = function (val) {
 		var length1 = this._length;
 		var length2 = val._length;
 		if (length1 < length2)
@@ -112,14 +112,15 @@
 			var result = '';
 			while (length > 0) {
 				var div = divideByUint16(data, length, radixUint16);
-				var rem = div.remainder.toString(radix);
-				if (length != 1 && rem.length < radixLength)
-					rem = zeros[radixLength - rem.length] + rem;
-				result = rem + result;
 				data = div.quotient;
 				length = data.length;
 				if (data[length - 1] == 0)
 					length--;
+
+				var rem = div.remainder.toString(radix);
+				if (length > 0 && rem.length < radixLength)
+					rem = zeros[radixLength - rem.length] + rem;
+				result = rem + result;
 			}
 			return result;
 		}
@@ -164,14 +165,14 @@
 		if (sign1 == 0)
 			return val;
 		if (sign1 == sign2) {
-			var result = absAdd(this, val);
+			var result = unsignedAdd(this, val);
 			result._sign = sign1;
 			return result;
 		} else {
-			var cmp = this.absCompareTo(val);
+			var cmp = this.unsignedCompareTo(val);
 			if (cmp == 0)
 				return BigInt.ZERO;
-			var result = cmp > 0 ? absSub(this, val) : absSub(val, this);
+			var result = cmp > 0 ? unsignedSubstract(this, val) : unsignedSubstract(val, this);
 			result._sign = cmp == sign1 ? 1 : -1;
 			return result;
 		}
@@ -185,14 +186,14 @@
 		if (sign1 == 0)
 			return val.negate();
 		if (sign1 != sign2) {
-			var result = absAdd(this, val);
+			var result = unsignedAdd(this, val);
 			result._sign = sign1;
 			return result;
 		} else {
-			var cmp = this.absCompareTo(val);
+			var cmp = this.unsignedCompareTo(val);
 			if (cmp == 0)
 				return BigInt.ZERO;
-			var result = cmp > 0 ? absSub(this, val) : absSub(val, this);
+			var result = cmp > 0 ? unsignedSubstract(this, val) : unsignedSubstract(val, this);
 			result._sign = cmp == sign1 ? 1 : -1;
 			return result;
 		}
@@ -219,9 +220,43 @@
 		return result;
 	};
 
-	window.BigInt.ZERO = new BigInt();
+	window.BigInt.prototype.divide = function (val) {
+		var sign1 = this._sign;
+		var sign2 = val._sign;
+		if (sign1 == 0)
+			return { quotient: BigInt.ZERO, remainder: BigInt.ZERO };
+		if (sign2 == 0)
+			throw 'Division by zero';
 
-	var absAdd = function (num1, num2) {
+		var cmp = this.unsignedCompareTo(val);
+		if (cmp == -1)
+			return { quotient: BigInt.ZERO, remainder: this };
+		if (cmp == 0)
+			return { quotient: BigInt.ONE, remainder: BigInt.ZERO };
+
+		if (val._length == 1) {
+			var div = divideByUint16(this._data, this._length, val._data[0]);
+			var q = new BigInt();
+			q._sign = 1;
+			q._data = div.quotient;
+			q._length = div.quotient.length;
+			if (div.quotient[q._length - 1] == 0)
+				q._length--;
+			if (div.remainder != 0) {
+				var r = new BigInt();
+				r._sign = 1;
+				r._data = new Uint16Array(1);
+				r._data[0] = div.remainder;
+				r._length = 1;
+			} else
+				var r = BigInt.ZERO;
+			return { quotient: q, remainder: r };
+		} else {
+
+		}
+	};
+
+	var unsignedAdd = function (num1, num2) {
 		var result = new BigInt();
 		if (num1._length < num2._length) {
 			var buf = num1;
@@ -256,7 +291,7 @@
 		return result;
 	};
 
-	var absSub = function (num1, num2) {
+	var unsignedSubstract = function (num1, num2) {
 		var result = new BigInt();
 		var data1 = num1._data;
 		var data2 = num2._data;
@@ -265,19 +300,17 @@
 		var data = new Uint16Array(length1);
 		result._data = data;
 
-		var diff = 0;
-		for (var i = 0; i < length1; i++) {
-			var diff = diff + data1[i];
-			if (i < length2)
-				diff -= data2[i];
-			if (diff < 0) {
-				data[i] = diff + 0x10000;
-				diff = -1;
-			} else {
-				data[i] = diff;
-				diff = 0;
-			}	
+		var carry = 0;
+		for (var i = 0; i < length2; i++) {
+			var diff = carry + data1[i] - data2[i];
+			data[i] = diff & 0xffff;
+			carry = diff >> 16;
 		};
+		for (var i = length2; i < length1; i++) {
+			var diff = carry + data1[i];
+			data[i] = diff & 0xffff;
+			carry = diff >> 16;
+		}
 
 		var length = length1;
 		while (data[length - 1] == 0)
@@ -421,6 +454,9 @@
 	// assumes divisor is Uint16
 	var divideByUint16 = function (data, length, divisor) {
 		data = data.subarray(0, length);
+		var buf = new Uint16Array(length);
+		buf.set(data, 0);
+		data = buf;
 		var quotient = new Uint16Array(length);
 		var index = length - 1;
 		while (index >= 0) {
@@ -437,6 +473,35 @@
 		}
 		return { quotient: quotient, remainder: data[0] };
 	};
+
+	// x - Uint16Array
+	// y - Uint16
+	// z - Uint16
+	// x = x * y + z
+	var destructiveMulAdd = function (x, y, z) {
+        var length = x.length;
+
+        var carry = 0;
+        for (var i = 0; i < length; i++) {
+            var product = y * x[i] + carry;
+            x[i] = product & 0xffff;
+            carry = product >>> 16;
+        }
+
+        var sum = x[0] + z;
+        x[0] = sum & 0xffff;
+        carry = sum >>> 16;
+        var index = 1;
+        while (carry != 0) {
+        	sum = x[index] + carry;
+        	x[index++] = sum & 0xffff;
+        	carry = sum >>> 16;
+        }
+	};
+
+	var divide = function () {
+
+	}
 
 	// ******************************************
 
@@ -638,27 +703,45 @@
 		return result;
 	};
 
-	window.BigInt.parse = function (str, radix) {
-		if (typeof str != 'string')
-			throw 'Invalid parameter';
+	window.BigInt.parse = function (val, radix) {
 		if (radix == undefined)
 			radix = 10;
-		if (radix < 2 || radix > 16)
+		if (radix < 2 || radix > 36)
 			throw 'Invalid parameter';
 
-		var power = BigInt.fromInt(1);
+		if (val == '0')
+			return new BigInt();
+
 		var result = new BigInt();
-		if (str.charAt(0) == '-') {
-			result._sign = 0;
-			str = str.substr(1);
+		if (val.charAt(0) == '-') {
+			result._sign = -1;
+			val = val.substr(1);
+		} else
+			result._sign = 1;
+
+		var numDigits = val.length;
+		var numBits = (numDigits * bitsPerDigit[radix] >>> 10) + 1;
+		var length = (numBits + 15) >>> 4;
+		var data = new Uint16Array(length);
+
+		var cursor = 0;
+		var firstGroupLen = numDigits % digitsPerUint16[radix];
+		if (firstGroupLen == 0)
+			firstGroupLen = digitsPerUint16[radix];
+		var group = val.substring(cursor, cursor += firstGroupLen);
+		data[0] = parseInt(group, radix);
+
+		var superRadix = uint16Radix[radix];
+		while (cursor < numDigits) {
+			group = val.substring(cursor, cursor += digitsPerUint16[radix]);
+			var groupVal = parseInt(group, radix);
+			destructiveMulAdd(data, superRadix, groupVal);
 		}
-		for (var i = str.length - 1; i >= 0; i--) {
-			var digit = parseInt(str.charAt(i), 16);
-			if (digit >= radix)
-				throw 'Invalid symbol';
-			result = BigInt.add(result, multByInt(power, digit));
-			power = multByInt(power, radix);
-		}
+
+		result._data = data;
+		while (data[length - 1] == 0)
+			length--;
+		result._length = length;
 
 		return result;
 	};
@@ -821,5 +904,13 @@
 	for (var i = 0; i < 16; i++)
 		zeros[i] = new Array(i + 1).join('0');
 
+	// used by parse
+	var bitsPerDigit = new Uint16Array(37);
+	for (var i = 2; i < 37; i++)
+		bitsPerDigit[i] = Math.ceil(1024 * Math.log(i) / Math.LN2);
+
+	// public constants
+	window.BigInt.ZERO = new BigInt();
+	window.BigInt.ONE = BigInt.fromInt(1);
 
 })();
