@@ -113,3 +113,13 @@ window.qmQuote = function (b) {
 		y2 += 10;
 	return y2;
 }
+
+function divideTest(a, b) {
+	var div = a.divide(b);
+	if (div.quotient.multiply(b).add(div.remainder).compareTo(a) != 0) {
+		console.log('Failed');
+		console.log('q: ' + div.quotient.toString());
+		console.log('r: ' + div.remainder.toString());
+	} else
+		console.log('Passed')
+}
