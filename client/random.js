@@ -21,6 +21,11 @@
 			array[i] = this.nextUint16();
 		return array;
 	};
+	window.Random.prototype.saveToFile = function (fileName, bytesCount) {
+		bytesCount = bytesCount || 10 * 1024 * 1024;
+		var blob = new Blob([this.getUint8Array(bytesCount)], { type: 'application/octet-binary' });
+		saveAs(blob, fileName);
+	};
 
 	window.StreamRandom = function () {
 		this._data = new Uint8Array();
