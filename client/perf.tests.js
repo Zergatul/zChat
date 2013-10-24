@@ -150,6 +150,48 @@
 		foo(1000, 10000);
 	};
 
+	window._dividePerfTest = function () {
+
+		var foo = function (len, count) {
+			var num1 = randomNumber(len * 2);
+			var num2 = randomNumber(len);
+			var a = BigInt.parse(num1);
+			var b = BigInt.parse(num2);
+			var c = str2bigInt(num1, 10);
+			var d = str2bigInt(num2, 10);
+
+			if (a.divide(b).remainder.toString() != bigInt2str(mod(c, d), 10)) {
+				console.log('Validation failed');
+				console.log('a: ' + a.toString());
+				console.log('b: ' + b.toString());
+				return;
+			}
+
+			var sw = new Stopwatch();
+
+			sw.start();
+			for (var i = 0; i < count; i++)
+				a.divide(b);
+			sw.stop();
+			t1 = sw.totalElapsed();
+			sw.reset();
+
+			sw.start();
+			for (var i = 0; i < count; i++)
+				mod(c, d);
+			sw.stop();
+			t2 = sw.totalElapsed();
+
+			printResults('Number length: ' + len + '; ', t1, t2);
+		};
+
+		foo(10, 1000000);
+		foo(50, 500000);
+		foo(100, 200000);
+		foo(500, 10000);
+		foo(1000, 2000);
+	};
+
 	window._multiplyKaratsubaTest = function (karParamFrom, karParamTo) {
 
 		var a = new BigInt();
