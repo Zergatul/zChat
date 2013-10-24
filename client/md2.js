@@ -47,6 +47,11 @@
 				l = C[j];
 			}
 
+		var buf = new Uint8Array(bytes.length + 16);
+		buf.set(bytes, 0);
+		buf.set(new Uint8Array(C), bytes.length);
+		bytes = buf;
+
 		var x = new Array(48);
 		for (var i = 0; i < 48; i++)
 			x[i] = 0;
@@ -54,7 +59,7 @@
 		for (var i = 0; i < Math.floor(bytes.length / 16); i++) {
 			for (var j = 0; j < 16; j++) {
 				x[16 + j] = bytes[i * 16 + j];
-				x[32 + j] = bytes[16 + j] ^ x[j];
+				x[32 + j] = bytes[i * 16 + j] ^ x[j];
 			}
 
 			var t = 0;
