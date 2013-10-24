@@ -252,7 +252,22 @@
 				var r = BigInt.ZERO;
 			return { quotient: q, remainder: r };
 		} else {
-
+			var div = divide(this._data.subarray(0, this._length), val._data.subarray(0, val._length));
+			var q = new BigInt();
+			q._sign = 1;
+			q._data = div.quotient;
+			q._length = q._data.length;
+			if (q._data[q._length - 1] == 0)
+				q._length--;
+			var r = new BigInt();
+			r._length = div.remainder.length;
+			if (r._length == 0) {
+				r._sign = 0;
+			} else {
+				r._sign = 1;
+				r._data = div.remainder;
+			}
+			return { quotient: q, remainder: r };
 		}
 	};
 
@@ -499,9 +514,89 @@
         }
 	};
 
-	var divide = function () {
+	// x - Uint16Array
+	// xLen - integer
+	// y - Uint16Array
+	// yLen - integer
+	// shift - integer
+	var shiftCompare = function (x, xLen, y, yLen, shift) {
+		if (xLen < yLen + shift)
+			return -1;
+		if (xLen > yLen + shift)
+			return 1;
+		for (var i = xLen - 1; i >= 0; i--) {
+			var xPart = x[i];
+			var yPart = y[i - shift];
+			if (xPart < yPart)
+				return -1;
+			if (xPart > yPart)
+				return 1;
+		}
+		return 0;
+	};
 
+	var shiftSubstract = function (x, xLen, y, yLen, shift) {
+		var carry = 0;
+		for (var i = 0; i < yLen; i++) {
+			var diff = carry + x[i + shift] - y[i];
+			x[i + shift] = diff & 0xffff;
+			carry = diff >> 16;
+		}
+	};
+
+	var multByInt = function (x, xLen, y) {
+		var result = new Uint16Array(xLen + y);
+		var sum = 0;
+		for (var i = 0; i < xLen; i++) {
+			sum = sum + y * x[i];
+			result[i] = sum & 0xffff;
+			sum = sum >>> 16;
+		}
+		if (sum != 0) {
+			result[i] = sum;
+			return result;
+		} else
+			return result.subarray(0, xLen);
+	};
+
+	var divide = function (x, y) {
+		var xLen = x.length;
+		var yLen = y.length;
+		var buf = new Uint16Array(xLen);
+		buf.set(x, 0);
+		x = buf;
+		var q = new Uint16Array(xLen - yLen + 1);
+
+		var shift = xLen - yLen;
+		while (shiftCompare(x, xLen, y, yLen, shift) >= 0) {
+			q[shift]++;
+			shiftSubstract(x, xLen, y, yLen, shift);
+			if (x[xLen - 1] == 0)
+				xLen--;
+		}
+
+		for (var i = xLen - 1; i >= yLen; i--) {
+			if (x[i] == y[yLen - 1]) {
+				q[i - yLen] = 0xffff;
+			} else {
+				q[i - yLen] = Math.floor((x[i] * 0x10000 + x[i - 1]) / y[yLen - 1]);
+			}
+			while (q[i - yLen] * (y[yLen - 1] * 0x10000 + y[yLen - 2] > x[i] * 0x10000 * 0x10000 + x[i - 1] * 0x10000 + x[i - 2])) {
+				q[i - yLen]--;
+			}
+			var delta = multByInt(y, yLen, q[i - yLen]);
+			if (shiftCompare(x, delta, i - yLen) < 0) {
+				q[i - yLen]--;
+				delta = multByInt(y, yLen, q[i - yLen]);
+			}
+			shiftSubstract(x, xLen, delta, delta.length, i - yLen)
+			if (x[xLen - 1] == 0)
+				xLen--;
+		}
+
+		return { quotient: q, remainder: x.subarray(0, xLen) };
 	}
+	window.divide = divide;
 
 	// ******************************************
 
@@ -633,7 +728,7 @@
 			_subWithShift(num1, mults[nextByte], i << 2);
 		}
 
-		return { div: div, mod: num1 };
+		return { quotient: div, remainder: num1 };
 	};
 
 	var millerRabinPass = function (a, n) {
