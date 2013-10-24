@@ -545,7 +545,7 @@
 	};
 
 	var multByInt = function (x, xLen, y) {
-		var result = new Uint16Array(xLen + y);
+		var result = new Uint16Array(xLen + 1);
 		var sum = 0;
 		for (var i = 0; i < xLen; i++) {
 			sum = sum + y * x[i];
@@ -585,7 +585,7 @@
 				q[i - yLen]--;
 			}
 			var delta = multByInt(y, yLen, q[i - yLen]);
-			if (shiftCompare(x, delta, i - yLen) < 0) {
+			while (shiftCompare(x, xLen, delta, delta.length, i - yLen) < 0) {
 				q[i - yLen]--;
 				delta = multByInt(y, yLen, q[i - yLen]);
 			}
@@ -596,7 +596,6 @@
 
 		return { quotient: q, remainder: x.subarray(0, xLen) };
 	}
-	window.divide = divide;
 
 	// ******************************************
 
