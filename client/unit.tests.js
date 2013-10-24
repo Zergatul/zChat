@@ -94,12 +94,39 @@
 		test(paddings['ISO/IEC 7816-4']);
 	};
 
+	var a40 = [25, 215, 226, 12, 106, 44, 159, 200, 49, 56, 86, 185, 11, 129, 90, 44, 125, 56, 126, 161, 114, 118, 212, 181, 23, 207, 189, 3, 55, 60, 7, 51, 5, 40, 199, 63, 151, 19, 88, 63];
+
+	window._md2Test = function () {
+		var test = function (bytes, hex) {
+			return bh.byteArrayToHex(md2(bytes)) == hex;
+		};
+
+		var result = true;
+		result &= test([], '8350e5a3e24c153df2275c9f80692773');
+		result &= test([255], '0797438d0baf3d71b7194ab3c71746b6');
+		result &= test(a40, '92183ec96932db4a26396b23d4df87a3');
+
+		console.log(result ? 'Passed' : 'Failed');
+	};
+
+	window._md4Test = function () {
+		var test = function (bytes, hex) {
+			return bh.byteArrayToHex(md4(bytes)) == hex;
+		};
+
+		var result = true;
+		result &= test([], '31d6cfe0d16ae931b73c59d7e0c089c0');
+		result &= test([255], '82c167af8e345bd055487af8d2b540c9');
+		result &= test(a40, 'c146aadc86111c7de36c7f319fa8a15d');
+
+		console.log(result ? 'Passed' : 'Failed');
+	};
+
 	window._md5Test = function () {
 		var test = function (bytes, hex) {
 			return bh.byteArrayToHex(md5(bytes)) == hex;
 		};
 
-		var a40 = [25, 215, 226, 12, 106, 44, 159, 200, 49, 56, 86, 185, 11, 129, 90, 44, 125, 56, 126, 161, 114, 118, 212, 181, 23, 207, 189, 3, 55, 60, 7, 51, 5, 40, 199, 63, 151, 19, 88, 63];
 		var result = true;
 		result &= test([], 'd41d8cd98f00b204e9800998ecf8427e');
 		result &= test([255], '00594fd4f42ba43fc1ca0427a0576295');
@@ -113,7 +140,6 @@
 			return bh.byteArrayToHex(sha1(bytes)) == hex;
 		};
 
-		var a40 = [25, 215, 226, 12, 106, 44, 159, 200, 49, 56, 86, 185, 11, 129, 90, 44, 125, 56, 126, 161, 114, 118, 212, 181, 23, 207, 189, 3, 55, 60, 7, 51, 5, 40, 199, 63, 151, 19, 88, 63];
 		var result = true;
 		result &= test([], 'da39a3ee5e6b4b0d3255bfef95601890afd80709');
 		result &= test([255], '85e53271e14006f0265921d02d4d736cdc580b0b');
@@ -126,8 +152,6 @@
 		var test = function (bytes, ver, hex) {
 			return bh.byteArrayToHex(sha2(bytes, ver)) == hex;
 		};
-
-		var a40 = [25, 215, 226, 12, 106, 44, 159, 200, 49, 56, 86, 185, 11, 129, 90, 44, 125, 56, 126, 161, 114, 118, 212, 181, 23, 207, 189, 3, 55, 60, 7, 51, 5, 40, 199, 63, 151, 19, 88, 63];
 
 		console.log('SHA-224');
 		var result = true;
