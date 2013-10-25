@@ -93,5 +93,6 @@
 			this._state = buf;
 		}
 	};
+	window.random.SHA2PRNG.init(random.default.getUint8Array(32));
 
 })();
