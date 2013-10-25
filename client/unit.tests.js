@@ -13,22 +13,21 @@
 		return result;
 	};
 
-	window._bigintTest = function () {
+	window._bigintModTest = function (testCount) {
 
-		console.log('>>> BigInt.add test');
-		console.log('>>> BigInt.sub test');
-		console.log('>>> BigInt.mult test');
+		testCount = testCount || 25;
+
 		console.log('>>> BigInt.mod test');
-		for (var i = 0; i < 25; i++) {
-			var len = 10 + Math.floor(Math.random() * 1000);
-			var aStr = randomNumber(len * 2);
+		for (var i = 0; i < testCount; i++) {
+			var len = random.default.nextRange(10, 1000);
+			var aStr = randomNumber(len + random.default.nextRange(1, len));
 			var bStr = randomNumber(len);
 			var a0 = BigInt.parse(aStr);
 			var b0 = BigInt.parse(bStr);
 			var a1 = str2bigInt(aStr, 10);
 			var b1 = str2bigInt(bStr, 10);
 
-			if (BigInt.mod(a0, b0).toString() != bigInt2str(mod(a1, b1), 10)) {
+			if (a0.mod(b0).toString() != bigInt2str(mod(a1, b1), 10)) {
 				console.log('Validation failed:');
 				console.log('a = ' + aStr);
 				console.log('b = ' + bStr);
@@ -36,20 +35,45 @@
 			}
 		}
 		console.log('Passed!');
+	};
 
-		console.log('>>> BigInt.extendedEuclidean test');
-		for (var i = 0; i < 25; i++) {
-			var len = 10 + Math.floor(Math.random() * 1000);
-			var aStr = randomNumber(len + 2);
-			var bStr = randomNumber(len);
+	window._bigintProbablePrimeTest = function (testCount) {
+
+		testCount = testCount || 25;
+
+		var isPrime = function (ans, bitLen) {
+			var divisible=0;
+
+			//check ans for divisibility by small primes up to B
+			/*for (var i=0; (i<primes.length) && (primes[i]<=B); i++)
+				if (modInt(ans,primes[i])==0 && !equalsInt(ans,primes[i])) {
+					divisible=1;
+					break;
+				} */     
+
+			//optimization: change millerRabin so the base can be bigger than the number being checked, then eliminate the while here.
+
+			//do n rounds of Miller Rabin, with random bases less than ans
+			for (i=0; i<50 && !divisible; i++) {
+				randBigInt_(rpprb,bitLen,0);
+				while(!greater(ans,rpprb)) //pick a random rpprb that's < ans
+					randBigInt_(rpprb,bitLen,0);
+				if (!millerRabin(ans,rpprb))
+					divisible=1;
+			}
+
+			return !divisible;
+		};
+
+		for (var i = 0; i < testCount; i++) {
+			var len = random.default.nextRange(10, 100);
+			var aStr = randomNumber(len);
 			var a0 = BigInt.parse(aStr);
-			var b0 = BigInt.parse(bStr);
+			var a1 = str2bigInt(aStr, 10);
 
-			var res = BigInt.extendedEuclidean(a0, b0);
-			if (BigInt.add(BigInt.mult(res.x, a0), BigInt.mult(res.y, b0)).compareTo(res.d) != 0) {
+			if (a0.isProbablePrime() != isPrime(a1, a0.bitLength())) {
 				console.log('Validation failed:');
 				console.log('a = ' + aStr);
-				console.log('b = ' + bStr);
 				return;
 			}
 		}

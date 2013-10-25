@@ -21,13 +21,7 @@
 		return (this._data[dataIndex] & (1 << bitIndex)) != 0;
 	};
 
-	window.BigInt.prototype.trailingZerosCount = function () {
-		var count = 0;
-		while (!this.isBitSet(count))
-			count++;
-		return count;
-	};
-
+	/* TODO */
 	window.BigInt.prototype.bitLength = function () {
 		var length = this._length;
 		if (length == 0)
@@ -43,15 +37,39 @@
 		return bitLength;
 	};
 
-	window.BigInt.prototype.isPrime = function () {
-		var repeatCount = 20;
-		for (var repeat = 0; repeat < repeatCount; repeat++) {
-			var a = BigInt.random(this);
-			if (!millerRabinPass(a, this))
-				return false;
-		}
+	window.BigInt.prototype.isProbablePrime = function () {
+		if (this.compareTo(BigInt.TWO) == 0)
+			return true;
+		if (!this.isBitSet(0) || this.compareTo(BigInt.ONE) == 0)
+			return false;
 
-		return true;
+		var bitLength = this._length * 16;
+		var repeatCount;
+		// probability < 1 / (2^80)
+		if (bitLength >= 600)
+			repeatCount = 2;
+		else if (bitLength >= 550)
+			repeatCount = 4;
+		else if (bitLength >= 500)
+			repeatCount = 5;
+		else if (bitLength >= 400)
+			repeatCount = 6;
+		else if (bitLength >= 350)
+			repeatCount = 7;
+		else if (bitLength >= 300)
+			repeatCount = 9;
+		else if (bitLength >= 250)
+			repeatCount = 12;
+		else if (bitLength >= 200)
+			repeatCount = 15;
+		else if (bitLength >= 150)
+			repeatCount = 18;
+		else if (bitLength >= 100)
+			repeatCount = 27;
+		else
+			repeatCount = 50;
+
+		return passesMillerRabin(this, repeatCount) && passesLucasLehmer(this);
 	};
 
 	window.BigInt.prototype.compareTo = function (val) {
@@ -256,9 +274,7 @@
 			var q = new BigInt();
 			q._sign = 1;
 			q._data = div.quotient;
-			q._length = q._data.length;
-			if (q._data[q._length - 1] == 0)
-				q._length--;
+			q._length = div.quotient.length;
 			var r = new BigInt();
 			r._length = div.remainder.length;
 			if (r._length == 0) {
@@ -269,6 +285,57 @@
 			}
 			return { quotient: q, remainder: r };
 		}
+	};
+
+	window.BigInt.prototype.mod = function (val) {
+		//
+		return this.divide(val).remainder;
+	};
+
+	window.BigInt.prototype.modPow = function (exponent, m) {
+		if (m._sign <= 0)
+			throw 'Modulus not positive';
+		if (exponent._sign == 0)
+			return m.compareTo(BigInt.ONE) == 0 ? BigInt.ZERO : BigInt.ONE;
+		if (this.compareTo(BigInt.ONE) == 0)
+			return m.compareTo(BigInt.ONE) == 0 ? BigInt.ZERO : BigInt.ONE;
+		/*if (this.equals(negConst[1]) && (!exponent.testBit(0)))
+            return (m.equals(ONE) ? ZERO : ONE);*/
+        var base = this.compareTo(m) >= 0 ? this.mod(m) : this;
+
+        var result = BigInt.ONE;
+		for (var i = exponent.bitLength() - 1; i >= 0; i--) {
+			result = result.multiply(result).mod(m);
+			if (exponent.isBitSet(i))
+				result = result.multiply(base).mod(m);
+		}
+
+		return result;
+	}
+
+	window.BigInt.prototype.shiftRight = function (shift) {
+		if (shift == 0)
+			return this;
+
+		var result = new BigInt();
+		result._sign = 1;
+		var shift16 = shift >>> 4;
+		var shiftBits = shift & 0xf;
+		var length = this._length;
+		var resultLength = length - shift16;
+		var data = new Uint16Array(length - shift16);
+		for (var i = 0; i < resultLength; i++) {
+			var item1 = this._data[i + shift16];
+			var item2 = i + shift16 + 1 < this._data.length ? this._data[i + shift16 + 1] : 0;
+			data[i] = (item1 >>> shiftBits) | (item2 << (16 - shiftBits));
+		}
+
+		if (data[resultLength - 1] == 0)
+			resultLength--;
+		result._length = resultLength;
+		result._data = data;
+
+		return result;
 	};
 
 	var unsignedAdd = function (num1, num2) {
@@ -542,6 +609,8 @@
 			x[i + shift] = diff & 0xffff;
 			carry = diff >> 16;
 		}
+		if (carry != 0)
+			x[i + shift] += carry;
 	};
 
 	var multByInt = function (x, xLen, y) {
@@ -560,219 +629,134 @@
 	};
 
 	var divide = function (x, y) {
-		var xLen = x.length;
+		var xLen = x.length + 1;
 		var yLen = y.length;
+
+		// clone arrays
 		var buf = new Uint16Array(xLen);
 		buf.set(x, 0);
 		x = buf;
+		buf = new Uint16Array(yLen);
+		buf.set(y, 0);
+		y = buf;
+
+		// calculate normalizing shift
+		var gamma = 0;
+		var yLead = y[yLen - 1];
+		while ((yLead & 0x8000) == 0) {
+			yLead = yLead << 1;
+			gamma++;
+		}
+
+		// shift y
+		y[yLen - 1] = y[yLen - 1] << gamma;
+		for (var i = yLen - 2; i >= 0; i--) {
+			y[i + 1] = y[i + 1] | (y[i] >>> (16 - gamma));
+			y[i] = y[i] << gamma;
+		}
+		// shift x
+		for (var i = xLen - 2; i >= 0; i--) {
+			x[i + 1] = x[i + 1] | (x[i] >>> (16 - gamma));
+			x[i] = x[i] << gamma;
+		}
+		while (x[xLen - 1] == 0)
+			xLen--;
+
 		var q = new Uint16Array(xLen - yLen + 1);
 
-		var shift = xLen - yLen;
-		while (shiftCompare(x, xLen, y, yLen, shift) >= 0) {
-			q[shift]++;
-			shiftSubstract(x, xLen, y, yLen, shift);
+		while (shiftCompare(x, xLen, y, yLen, xLen - yLen) >= 0) {
+			q[xLen - yLen]++;
+			shiftSubstract(x, xLen, y, yLen, xLen - yLen);
 			if (x[xLen - 1] == 0)
 				xLen--;
 		}
 
+		var yFirst = y[yLen - 1];
+		var ySecond = y[yLen - 2];
+		var qNext;
 		for (var i = xLen - 1; i >= yLen; i--) {
-			if (x[i] == y[yLen - 1]) {
-				q[i - yLen] = 0xffff;
-			} else {
-				q[i - yLen] = Math.floor((x[i] * 0x10000 + x[i - 1]) / y[yLen - 1]);
+			if (x[i] == yFirst)
+				qNext = 0xffff;
+			else
+				qNext = Math.floor((x[i] * 0x10000 + x[i - 1]) / yFirst);
+			while (true) {
+				var left2 = ySecond * qNext;
+				var left1 = (left2 >>> 16) + yFirst * qNext;
+				var left0 = (left1 >>> 16) - x[i];
+				left1 = (left1 & 0xffff) - x[i - 1];
+				left2 = (left2 & 0xffff) - x[i - 2];
+				if (left0 < 0)
+					break;
+				else
+					if (left0 == 0)
+						if (left1 < 0)
+							break;
+						else
+							if (left1 == 0 && left2 <= 0)
+								break;
+				qNext--;
 			}
-			while (q[i - yLen] * (y[yLen - 1] * 0x10000 + y[yLen - 2] > x[i] * 0x10000 * 0x10000 + x[i - 1] * 0x10000 + x[i - 2])) {
-				q[i - yLen]--;
-			}
-			var delta = multByInt(y, yLen, q[i - yLen]);
+			var delta = multByInt(y, yLen, qNext);
+			var r = 0;
 			while (shiftCompare(x, xLen, delta, delta.length, i - yLen) < 0) {
-				q[i - yLen]--;
-				delta = multByInt(y, yLen, q[i - yLen]);
+				qNext--;
+				delta = multByInt(y, yLen, qNext);
+				r++;
 			}
-			shiftSubstract(x, xLen, delta, delta.length, i - yLen)
-			if (x[xLen - 1] == 0)
+			if (r > 1)
+				console.log('qq: ' + r);
+			shiftSubstract(x, xLen, delta, delta.length, i - yLen);
+			q[i - yLen] = qNext;
+			while (x[xLen - 1] == 0)
 				xLen--;
 		}
 
-		return { quotient: q, remainder: x.subarray(0, xLen) };
-	}
+		var qLen = q.length;
+		while (q[qLen - 1] == 0)
+			qLen--;
+
+		// shift back normalization of x
+		x[0] = x[0] >>> gamma;
+		for (var i = 1; i < xLen; i++) {
+			x[i - 1] = x[i - 1] | (x[i] << (16 - gamma));
+			x[i] = x[i] >>> gamma;
+		}
+		while (x[xLen - 1] == 0)
+			xLen--;
+
+		return { quotient: q.subarray(0, qLen), remainder: x.subarray(0, xLen) };
+	};
+
+	var passesMillerRabin = function (x, count) {
+		var xMinusOne = x.substract(BigInt.ONE);
+		var shift = 1;
+		while (!x.isBitSet(shift))
+			shift++;
+		var m = x.shiftRight(shift);
+		var bitLength = x.bitLength();
+
+		for (var i = 0; i < count; i++) {
+			do {
+				var b = BigInt.random(bitLength, random.default);
+			} while (b._sign == 0 || b.compareTo(x) >= 0);
+
+			var j = 0;
+			var z = b.modPow(m, x);
+			while (!((j == 0 && z.compareTo(BigInt.ONE) == 0) || z.compareTo(xMinusOne) == 0)) {
+				if (j > 0 && z.compareTo(BigInt.ONE) == 0 || ++j == shift)
+					return false;
+				z = z.multiply(z).mod(x);
+			}
+		}
+
+		return true;
+	};
+
+	var passesLucasLehmer = function (x) {
+		return true;
+	};
 
 	// ******************************************
-
-	var cmpWithShift = function (num1, num2, shift) {
-		var intPart = shift >>> 4;
-		var bitPart = shift & 0xf;
-		var num1bl = num1.bitLength();
-		var num2bl = num2.bitLength();
-		if (num1bl < num2bl + shift)
-			return -1;
-		if (num1bl > num2bl + shift)
-			return 1;
-		var n1length = num1._data.length;
-		var n2length = num2._data.length;
-		for (var i = n1length - 1; i >= 0; i--) {
-			var num1Part = num1._data[i];
-			var num2Part = 0;
-			if (i - intPart < n2length)
-				num2Part = (num2._data[i - intPart] << bitPart) & 0xffff;
-			if (i - intPart - 1 >= 0)
-				num2Part = num2Part | (num2._data[i - intPart - 1] >>> (16 - bitPart));
-			if (num1Part > num2Part)
-				return 1;
-			if (num1Part < num2Part)
-				return -1;
-		}
-		return 0;
-	};
-
-	var _subWithShift = function (num1, num2, shift) {
-		var intPart = shift >>> 4;
-		var bitPart = shift & 0xf;
-		var n1length = num1._data.length;
-		var n2length = num2._data.length;
-		for (var i = 0; i < n2length; i++) {
-			num1._data[i + intPart] -= (num2._data[i] << bitPart) & 0xffff;
-			if (bitPart != 0 && i + intPart + 1 < n1length)
-				num1._data[i + intPart + 1] -= num2._data[i] >>> (16 - bitPart);
-		}
-		for (var i = intPart; i < n2length + intPart; i++)
-			if (num1._data[i] < 0) {
-				num1._data[i] += 0x10000;
-				num1._data[i + 1]--;
-			}
-		truncateZeros(num1);
-	};
-
-	var shl16Bit = function (num, count) {
-		if (num.isZero())
-			return num;
-		var result = new BigInt();
-		for (var i = 0; i < count; i++)
-			result._data.push(0);
-		for (var i = 0; i < num._data.length; i++)
-			result._data.push(num._data[i]);
-		return result;
-	};
-
-	var divMod = function (num1, num2) {
-		var mults = new Array(16);
-		for (var i = 0; i < 16; i++)
-			mults[i] = multByInt(num2, i);
-		num1 = num1.clone();
-
-		var div = new BigInt();
-		div._data = new Array(num1._data.length - num2._data.length + 1);
-		for (var i = 4 * div._data.length - 1; i >= 0; i--) {
-			var nextByte;
-			var cmp8 = cmpWithShift(num1, mults[8], i << 2);
-			if (cmp8 == 0)
-				nextByte = 8;
-			else if (cmp8 < 0) {
-				var cmp4 = cmpWithShift(num1, mults[4], i << 2);
-				if (cmp4 == 0)
-					nextByte = 4;
-				else if (cmp4 < 0) {
-					var cmp2 = cmpWithShift(num1, mults[2], i << 2);
-					if (cmp2 == 0)
-						nextByte = 2;
-					else if (cmp2 < 0) {
-						var cmp1 = cmpWithShift(num1, mults[1], i << 2);
-						nextByte = cmp1 >= 0 ? 1 : 0;
-					} else {
-						var cmp3 = cmpWithShift(num1, mults[3], i << 2);
-						nextByte = cmp3 >= 0 ? 3 : 2;
-					}
-				} else { // cmp4 > 0
-					var cmp6 = cmpWithShift(num1, mults[6], i << 2);
-					if (cmp6 == 0)
-						nextByte = 6
-					else if (cmp6 < 0) {
-						var cmp5 = cmpWithShift(num1, mults[5], i << 2);
-						nextByte = cmp5 >= 0 ? 5 : 4;
-					} else {
-						var cmp7 = cmpWithShift(num1, mults[7], i << 2);
-						nextByte = cmp7 >= 0 ? 7 : 6;
-					}
-				}
-			} else { // cmp8 > 0
-				var cmp12 = cmpWithShift(num1, mults[12], i << 2);
-				if (cmp12 == 0)
-					nextByte = 12;
-				else if (cmp12 < 0) {
-					var cmp10 = cmpWithShift(num1, mults[10], i << 2);
-					if (cmp10 == 0)
-						nextByte = 10;
-					else if (cmp10 < 0) {
-						var cmp9 = cmpWithShift(num1, mults[9], i << 2);
-						nextByte = cmp9 >= 0 ? 9 : 8;
-					} else {
-						var cmp11 = cmpWithShift(num1, mults[11], i << 2);
-						nextByte = cmp11 >= 0 ? 11 : 10;
-					}
-				} else { // cmp12 > 0
-					var cmp14 = cmpWithShift(num1, mults[14], i << 2);
-					if (cmp14 == 0)
-						nextByte = 14;
-					else if (cmp14 < 0) {
-						var cmp13 = cmpWithShift(num1, mults[13], i << 2);
-						nextByte = cmp13 >= 0 ? 13 : 12;
-					} else {
-						var cmp15 = cmpWithShift(num1, mults[15], i << 2);
-						nextByte = cmp15 >= 0 ? 15 : 14;
-					}
-				}
-			}
-
-			div._data[i >>> 2] = div._data[i >>> 2] | (nextByte << ((i & 3) << 2));
-			_subWithShift(num1, mults[nextByte], i << 2);
-		}
-
-		return { quotient: div, remainder: num1 };
-	};
-
-	var millerRabinPass = function (a, n) {
-		var nMinus1 = BigInt.sub(n, BigInt.fromInt(1));
-		var zeroBits = nMinus1.trailingZerosCount();
-		var d = BigInt.shr(nMinus1, zeroBits);
-
-		var aToPower = BigInt.modPow(a, d, n);
-		if (aToPower.isOne())
-			return true;
-
-		for (var i = 0; i < zeroBits - 1; i++) {
-			if (aToPower.compareTo(nMinus1) == 0)
-				return true;
-			aToPower = BigInt.mod(BigInt.mult(aToPower, aToPower), n);
-		}
-		if (aToPower.compareTo(nMinus1) == 0)
-			return true;
-		return false;
-	};
-
-	
-
-	var mQuote = function (b) {
-		var a = 0x10000;
-		b = 0x10000 - b;
-		if (b == 0)
-			return { d: a, x: 1, y: 0 };
-		var x2 = 1, x1 = 0, y2 = 0, y1 = 1, x, y, r;
-		while (b > 0) {
-			q = Math.floor(a / b);
-			r = a - q * b;
-			x = x2 - q * x1;
-			y = y2 - q * y1;
-			a = b;
-			b = r;
-			x2 = x1;
-			x1 = x;
-			y2 = y1;
-			y1 = y;
-		}
-		if (y2 < 0)
-			y2 += 0x10000;
-		return y2;
-	}
 
 	window.BigInt.fromInt = function (val) {
 		if (val == 0)
@@ -840,6 +824,27 @@
 		return result;
 	};
 
+	window.BigInt.random = function (bitLength, rnd) {
+		var result = new BigInt();
+		result._sign = 1;
+		var length = bitLength >>> 4;
+		var leadBits = bitLength & 0xf;
+		if (leadBits != 0)
+			length++;
+		var data = rnd.getUint16Array(length);
+		if ((bitLength & 0xf) != 0)
+			data[length - 1] = data[length - 1] & ((1 << leadBits) - 1);
+		while (data[length - 1] == 0)
+			length--;
+		result._length = length;
+		if (length != 0)
+			result._data = data;
+		else
+			result._sign = 0;
+		return result;
+	};
+
+	/* TODO */
 	window.BigInt.randomPrime = function (bitLength) {
 		do {
 			var bi = BigInt.randomForBitLength(bitLength);
@@ -848,90 +853,7 @@
 		return bi;
 	};
 
-	window.BigInt.shl = function (num, count) {
-		if (!(num instanceof BigInt) || count < 0)
-			throw 'Invalid parameters';
-
-		if (count % 16)
-			return shl16Bit(num, count / 16);
-
-		throw 'Not implemented';
-	};
-
-	window.BigInt.shr = function (num, count) {
-		if (!(num instanceof BigInt) || count < 0)
-			throw 'Invalid parameters';
-
-		if (count == 0)
-			return num;
-
-		var result = new BigInt();
-		var count16 = count >>> 4;
-		var shift = count & 0xf;
-		for (var i = 0; i < num._data.length - count16; i++) {
-			var item1 = num._data[i + count16];
-			var item2 = i + count16 + 1 < num._data.length ? num._data[i + count16 + 1] : 0;
-			result._data.push((item1 >>> shift) | (item2 << (16 - shift)));
-		}
-
-		truncateZeros(result);
-
-		return result;
-	};
-
-	window.BigInt.div = function (num1, num2) {
-		if (!(num1 instanceof BigInt) || !(num2 instanceof BigInt))
-			throw 'Invalid parameters';
-
-		if (num2.isZero())
-			throw 'Division by zero';
-		if (num1.compareTo(num2) < 0)
-			return new BigInt();
-
-		return divMod(num1, num2).div;
-	};
-
-	window.BigInt.mod = function (num1, num2) {
-		if (!(num1 instanceof BigInt) || !(num2 instanceof BigInt))
-			throw 'Invalid parameters';
-
-		if (num2.isZero())
-			throw 'Division by zero';
-		if (num1.compareTo(num2) < 0)
-			return num1;
-
-		return divMod(num1, num2).mod;
-	};
-
-	window.BigInt.logFloor = function (num, base) {
-		if (!(num instanceof BigInt) || !(typeof base == 'number'))
-			throw 'Invalid parameters';
-
-		var baseBigInt = BigInt.fromInt(base);
-		var power = baseBigInt;
-		var result = 0;
-		while (power.compareTo(num) <= 0) {
-			power = multGeneral(power, baseBigInt);
-			result++;
-		}
-
-		return result;
-	};
-
-	window.BigInt.modPow = function (num, exponent, modulus) {
-		if (!(num instanceof BigInt) || !(exponent instanceof BigInt) || !(modulus instanceof BigInt))
-			throw 'Invalid parameters';
-
-		var result = BigInt.fromInt(1);
-		for (var i = exponent._data.length * 16; i >= 0; i--) {
-			result = BigInt.mod(multGeneral(result, result), modulus);
-			if (exponent.isBitSet(i))
-				result = BigInt.mod(multGeneral(result, num), modulus);
-		}
-
-		return result;
-	};
-
+	/* TODO */
 	window.BigInt.extendedEuclidean = function (a, b) {
 		if (!(a instanceof BigInt) || !(b instanceof BigInt))
 			throw 'Invalid arguments';
@@ -961,6 +883,7 @@
 		return { d: a, x: x2, y: y2 };
 	};
 
+	/* TODO */
 	window.BigInt.montgomeryReduction = function (a, b, m) {
 		if (!(a instanceof BigInt) || !(b instanceof BigInt) || !(m instanceof BigInt))
 			throw 'Invalid argument';
@@ -1006,5 +929,6 @@
 	// public constants
 	window.BigInt.ZERO = new BigInt();
 	window.BigInt.ONE = BigInt.fromInt(1);
+	window.BigInt.TWO = BigInt.fromInt(2);
 
 })();
