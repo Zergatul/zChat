@@ -216,6 +216,25 @@
 		}
 	};
 
+	window._randomPrimePerfTest = function (bitLen, rounds) {
+		bitLen = bitLen | 128;
+		rounds = rounds | 100;
+
+		var sw = new Stopwatch();
+		sw.start();
+		for (var i = 0; i < 100; i++)
+			BigInt.randomPrime(128, random.default);
+		sw.stop();
+		console.log('My: ' + sw.totalElapsed() + 'ms');
+
+		sw.reset();
+		sw.start();
+		for (var i = 0; i < 100; i++)
+			randProbPrime(128);
+		sw.stop();
+		console.log('Other: ' + sw.totalElapsed() + 'ms');
+	};
+
 	window._md5PerfTest = function () {
 		var array = new Uint8Array(16);
 		for (var i = 0; i < array.length; i++)

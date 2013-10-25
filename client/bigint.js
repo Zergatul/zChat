@@ -3,11 +3,23 @@
 	if (bh == undefined)
 		throw 'bithelper.js not loaded';
 
+	// ****************************************************************************************
+	// ****************************************************************************************
+	// constructor
+	// ****************************************************************************************
+	// ****************************************************************************************
+
 	window.BigInt = function () {
 		this._data = null;
 		this._length = 0;
 		this._sign = 0;
 	};
+
+	// ****************************************************************************************
+	// ****************************************************************************************
+	// instance methods
+	// ****************************************************************************************
+	// ****************************************************************************************
 
 	window.BigInt.prototype.isBitSet = function (index) {
 		if (index < 0)
@@ -21,12 +33,11 @@
 		return (this._data[dataIndex] & (1 << bitIndex)) != 0;
 	};
 
-	/* TODO */
 	window.BigInt.prototype.bitLength = function () {
-		var length = this._length;
-		if (length == 0)
+		if (this._sign == 0)
 			return 0;
-		var bitLength = length * 16;
+		var length = this._length;
+		var bitLength = length << 4;
 		var lastInt16 = this._data[length - 1];
 		var mask = 1 << 15;
 		while (mask > lastInt16) {
@@ -42,6 +53,11 @@
 			return true;
 		if (!this.isBitSet(0) || this.compareTo(BigInt.ONE) == 0)
 			return false;
+
+		// skip 2
+		for (var i = 1; i < firstPrimes.length; i++)
+			if (divideByUint16(this._data, this._length, firstPrimes[i]).remainder == 0)
+				return false;
 
 		var bitLength = this._length * 16;
 		var repeatCount;
@@ -337,6 +353,12 @@
 
 		return result;
 	};
+
+	// ****************************************************************************************
+	// ****************************************************************************************
+	// private methods
+	// ****************************************************************************************
+	// ****************************************************************************************
 
 	var unsignedAdd = function (num1, num2) {
 		var result = new BigInt();
@@ -756,7 +778,11 @@
 		return true;
 	};
 
-	// ******************************************
+	// ****************************************************************************************
+	// ****************************************************************************************
+	// static members
+	// ****************************************************************************************
+	// ****************************************************************************************
 
 	window.BigInt.fromInt = function (val) {
 		if (val == 0)
@@ -844,13 +870,18 @@
 		return result;
 	};
 
-	/* TODO */
-	window.BigInt.randomPrime = function (bitLength) {
-		do {
-			var bi = BigInt.randomForBitLength(bitLength);
-			bi.setBit(0, 1);
-		} while (!bi.isPrime());
-		return bi;
+	// random prime with length = [bitLength, bitLength + 1]
+	window.BigInt.randomPrime = function (bitLength, rnd) {
+		var repeatCount = 1;
+		while (true) {
+			var randomNumber = BigInt.random(bitLength, rnd);
+			randomNumber._data[0] = randomNumber._data[0] | 1;
+			if (randomNumber.isProbablePrime())
+				break;
+			repeatCount++;
+		}
+		console.log('Rounds: ' + repeatCount);
+		return randomNumber;
 	};
 
 	/* TODO */
@@ -925,6 +956,9 @@
 	var bitsPerDigit = new Uint16Array(37);
 	for (var i = 2; i < 37; i++)
 		bitsPerDigit[i] = Math.ceil(1024 * Math.log(i) / Math.LN2);
+
+	// used by isProbablePrime
+	var firstPrimes = new Uint16Array([2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97]);
 
 	// public constants
 	window.BigInt.ZERO = new BigInt();
