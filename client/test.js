@@ -148,7 +148,7 @@ function divideFuckingShit(check) {
 
 	var sw = new Stopwatch();
 	sw.start();
-	for (var i = 0; i < 1000; i++)
+	for (var i = 0; i < 300; i++)
 		a.divide(b);
 	sw.stop();
 	console.log(sw.totalElapsed() + 'ms');

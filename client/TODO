@@ -1,3 +1,7 @@
 bitLength(): use binary search with constants in code
 
 rewrite all bigint private method to use arrays as parameters
+
+passesLucasLehmer
+
+montgomery exponentiation - length = 2, todo

@@ -49,12 +49,14 @@
 	};
 
 	window.BigInt.prototype.isProbablePrime = function () {
-		if (this.compareTo(BigInt.TWO) == 0)
-			return true;
-		if (!this.isBitSet(0) || this.compareTo(BigInt.ONE) == 0)
+		if (this._sign <= 0)
+			return false;
+		if (this._length <= 2)
+			return this.isPrime();
+		if (!this.isBitSet(0))
 			return false;
 
-		// skip 2
+		// skip firstPrimes[0] == 2, i begins from 1
 		for (var i = 1; i < firstPrimes.length; i++)
 			if (divideByUint16(this._data, this._length, firstPrimes[i]).remainder == 0)
 				return false;
@@ -86,6 +88,28 @@
 			repeatCount = 50;
 
 		return passesMillerRabin(this, repeatCount) && passesLucasLehmer(this);
+	};
+
+	window.BigInt.prototype.isPrime = function () {
+		if (this._sign == 0)
+			return false;
+		if (this._length <= 2) {
+			var intValue = this._data[0];
+			if (this._length == 2)
+				intValue = intValue | (this._data[1] << 16);
+			if (intValue <= firstPrimes[firstPrimes.length - 1]) {
+				for (var i = 0; i < firstPrimes.length; i++)
+					if (firstPrimes[i] == intValue)
+						return true;
+				return false;
+			}
+			var sqrt = Math.floor(Math.sqrt(intValue));
+			for (var i = 2; i <= sqrt; i++)
+				if (intValue % i == 0)
+					return false;
+			return true;
+		} else
+			throw 'Not implemented';
 	};
 
 	window.BigInt.prototype.compareTo = function (val) {
@@ -315,8 +339,6 @@
 			return m.compareTo(BigInt.ONE) == 0 ? BigInt.ZERO : BigInt.ONE;
 		if (this.compareTo(BigInt.ONE) == 0)
 			return m.compareTo(BigInt.ONE) == 0 ? BigInt.ZERO : BigInt.ONE;
-		/*if (this.equals(negConst[1]) && (!exponent.testBit(0)))
-            return (m.equals(ONE) ? ZERO : ONE);*/
         var base = this.compareTo(m) >= 0 ? this.mod(m) : this;
 
         var result = BigInt.ONE;
@@ -327,7 +349,52 @@
 		}
 
 		return result;
-	}
+	};
+
+	window.BigInt.prototype.modPow2 = function (exponent, m) {
+		var l = m._length;
+		var r = new BigInt();
+		r._length = l + 1;
+		r._data = new Uint16Array(l + 1);
+		r._data[l] = 1;
+		r._sign = 1;
+
+		var x = new Uint16Array(l);
+		x.set(this._data.subarray(0, l), 0);
+
+		var mPrime = -extendedEuclideanInt32(0x10000, m._data[0]).y;
+		if (mPrime < 0)
+			mPrime = mPrime + 0x10000;
+
+		var xPrime = this.multiply(r).mod(m)._data;
+		var buf = new Uint16Array(l);
+		buf.set(xPrime, 0);
+		xPrime = buf;
+
+		var a = r.mod(m)._data;
+		var buf = new Uint16Array(l);
+		buf.set(a, 0);
+		a = buf;
+
+		m = m._data.subarray(0, m._length);
+
+		for (var i = exponent.bitLength() - 1; i >= 0; i--) {
+			a = montgomeryMultiplication(a, a, m, mPrime);
+			if (exponent.isBitSet(i))
+				a = montgomeryMultiplication(a, xPrime, m, mPrime);
+		}
+		var one = new Uint16Array(l);
+		one[0] = 1;
+		a = montgomeryMultiplication(a, one, m, mPrime);
+		
+		while (a[l - 1] == 0)
+			l--;
+		var result = new BigInt();
+		result._sign = 1;
+		result._data = a;
+		result._length = l;
+		return result;
+	};
 
 	window.BigInt.prototype.shiftRight = function (shift) {
 		if (shift == 0)
@@ -635,19 +702,43 @@
 			x[i + shift] += carry;
 	};
 
-	var multByInt = function (x, xLen, y) {
-		var result = new Uint16Array(xLen + 1);
-		var sum = 0;
-		for (var i = 0; i < xLen; i++) {
-			sum = sum + y * x[i];
-			result[i] = sum & 0xffff;
-			sum = sum >>> 16;
+	// x - Uint16Array
+	// xLen - integer
+	// y - Uint16Array
+	// yLen - integer
+	// m - Uint16
+	// shift - integer
+	// x = x - ((y * m) << shift)
+	// returns:
+	//		true - if x >= 0
+	//		false - if x < 0
+	var shiftSubstractLinComb = function (x, xLen, y, yLen, m, shift) {
+		var carry = 0;
+		for (var i = 0; i < yLen; i++) {
+			var mult = y[i] * m + carry;
+			var diff = x[i + shift] - (mult & 0xffff);
+			x[i + shift] = diff & 0xffff;
+			carry = (mult >>> 16) - (diff >> 16);
 		}
-		if (sum != 0) {
-			result[i] = sum;
-			return result;
-		} else
-			return result.subarray(0, xLen);
+		if (carry != 0)
+			if (i + shift == xLen)
+				return false;
+			else {
+				var diff = x[i + shift] - carry;
+				x[i + shift] = diff & 0xffff;
+				return diff >= 0;
+			}
+		else
+			return true;
+	};
+
+	var shiftNegativeAdd = function (x, xLen, y, yLen, shift) {
+		var carry = 0;
+		for (var i = 0; i < yLen; i++) {
+			var sum = carry + x[i + shift] + y[i];
+			x[i + shift] = sum & 0xffff;
+			carry = sum >>> 16;
+		}
 	};
 
 	var divide = function (x, y) {
@@ -718,16 +809,10 @@
 								break;
 				qNext--;
 			}
-			var delta = multByInt(y, yLen, qNext);
-			var r = 0;
-			while (shiftCompare(x, xLen, delta, delta.length, i - yLen) < 0) {
+			if (!shiftSubstractLinComb(x, xLen, y, yLen, qNext, i - yLen)) {
 				qNext--;
-				delta = multByInt(y, yLen, qNext);
-				r++;
+				shiftNegativeAdd(x, xLen, y, yLen, i - yLen);
 			}
-			if (r > 1)
-				console.log('qq: ' + r);
-			shiftSubstract(x, xLen, delta, delta.length, i - yLen);
 			q[i - yLen] = qNext;
 			while (x[xLen - 1] == 0)
 				xLen--;
@@ -777,6 +862,72 @@
 	var passesLucasLehmer = function (x) {
 		return true;
 	};
+
+	// x - Uint16Array
+	// y - Uint16Array
+	// m - Uint16Array (odd)
+	// x, y, m - have equal length
+	// mInv - Uint16 (mInv = -(1 / m) mod 0x10000)
+	var montgomeryMultiplication = function (x, y, m, mInv) {
+		var length = m.length;
+		var result = new Uint16Array(length);
+		for (var i = 0; i < length; i++) {
+			var u = (((result[0] + x[i] * y[0]) & 0xffff) * mInv) & 0xffff;
+			var carry = 0;
+			for (var j = 0; j < length; j++) {
+				var sum = carry + x[i] * y[j];
+				carry = sum >> 16;
+				sum = sum & 0xffff;
+				sum = sum + u * m[j];
+				if (j > 0)
+					result[j - 1] = sum & 0xffff;
+				carry = carry + (sum >> 16);
+			}
+			result[length - 1] = carry;
+		}
+		// check if result > m
+		var greater = false;
+		for (var i = length - 1; i >= 0; i--)
+			if (result[i] > m[i]) {
+				greater = true;
+				break;
+			} else if (result < m[i])
+				break;
+		if (greater) {
+			carry = 0;
+			for (var i = 0; i < length; i++) {
+				var diff = carry + result[i] - m[i];
+				result[i] = diff & 0xffff;
+				carry = diff >> 16;
+			}
+		}
+		return result;
+	};
+	window.montgomeryMultiplication = montgomeryMultiplication;
+
+	// a, b - Int32 (a >= b)
+	// returns { x, y, d }, where d = gcd(a, b), ax + by = d
+	var extendedEuclideanInt32 = function (a, b) {
+		if (a < b)
+			throw 'Invalid parameter';
+		if (b == 0)
+			return { d: a, x: 1, y: 0 };
+		var x2 = 1, x1 = 0, y2 = 0, y1 = 1;
+		while (b > 0) {
+			var q = Math.floor(a / b);
+			var r = a - b * q;
+			x = x2 - q * x1;
+			y = y2 - q * y1;
+			a = b;
+			b = r;
+			x2 = x1;
+			x1 = x;
+			y2 = y1;
+			y1 = y;
+		}
+		return { d: a, x: x2, y: y2 };
+	};
+	window.extendedEuclideanInt32 = extendedEuclideanInt32;
 
 	// ****************************************************************************************
 	// ****************************************************************************************
@@ -912,29 +1063,6 @@
 			y1 = y;
 		}
 		return { d: a, x: x2, y: y2 };
-	};
-
-	/* TODO */
-	window.BigInt.montgomeryReduction = function (a, b, m) {
-		if (!(a instanceof BigInt) || !(b instanceof BigInt) || !(m instanceof BigInt))
-			throw 'Invalid argument';
-
-		var modLength = m._data.length;
-		var A = new BigInt();
-		/*A._data = new Array(modLength);
-		for (var i = 0; i < modLength; i++)
-			A._data[i] = 0;*/
-		var mq = mQuote(m._data[0]);
-
-		for (var i = 0; i < modLength; i++) {
-			var a0 = A._data.length > 0 ? A._data[0] : 0;
-			var u = ((a0 + a._data[i] * b._data[0]) * mq) & 0xffff;
-			A = addAbs(addAbs(A, multByInt(b, a._data[i])), multByInt(m, u));
-			A = BigInt.shr(A, 16);
-		}
-		if (A.compareTo(m) > 0)
-			A = subAbs(A, m);
-		return A;
 	};
 
 	// used by toString

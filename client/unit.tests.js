@@ -13,11 +13,33 @@
 		return result;
 	};
 
+	window._bigintAddTest = function (testCount) {
+
+		testCount = testCount || 250;
+
+		for (var i = 0; i < testCount; i++) {
+			var len = random.default.nextRange(10, 2000);
+			var aStr = randomNumber(len);
+			var bStr = randomNumber(len);
+			var a0 = BigInt.parse(aStr);
+			var b0 = BigInt.parse(bStr);
+			var a1 = str2bigInt(aStr, 10);
+			var b1 = str2bigInt(bStr, 10);
+
+			if (a0.add(b0).toString() != bigInt2str(add(a1, b1), 10)) {
+				console.log('Validation failed:');
+				console.log('a = ' + aStr);
+				console.log('b = ' + bStr);
+				return;
+			}
+		}
+		console.log('Passed!');
+	};
+
 	window._bigintModTest = function (testCount) {
 
 		testCount = testCount || 25;
 
-		console.log('>>> BigInt.mod test');
 		for (var i = 0; i < testCount; i++) {
 			var len = random.default.nextRange(10, 1000);
 			var aStr = randomNumber(len + random.default.nextRange(1, len));
@@ -205,5 +227,29 @@
 		result &= test([97, 98, 99], 512, 'ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f');
 		test(a40, 512, 'a8e64de4f5fa72e7a1a1bee705d87acc50748a810482a088535e53ad741ed68fb0c7cb08035802f63d466ba629b13823705db763f5ec043918f20c2266c0a783');
 		console.log(result ? 'Passed' : 'Failed');
+	};
+
+	window._tt = function () {
+		var failed = false;
+		for (var i = 0; i < 10; i++) {
+			var len = random.default.nextRange(3, 10);
+			var a = BigInt.parse(randomNumber(len, 1));
+			var e = BigInt.parse(randomNumber(len, 1));
+			var m = BigInt.parse(randomNumber(len, 2));
+			m._data[0] = m._data[0] | 1;
+			var mp1 = a.modPow(e, m).toString();
+			var mp2 = a.modPow2(e, m).toString();
+			if (mp1 != mp2) {
+				console.log('test ' + i + ' failed');
+				console.log(a.toString());
+				console.log(e.toString());
+				console.log(m.toString());
+				failed = true;
+			} else {
+				console.log(len + ' ok');
+			}
+		}
+		if (!failed)
+			console.log('Passed');
 	};
 })();
