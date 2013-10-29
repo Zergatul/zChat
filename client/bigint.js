@@ -870,29 +870,49 @@
 	// mInv - Uint16 (mInv = -(1 / m) mod 0x10000)
 	var montgomeryMultiplication = function (x, y, m, mInv) {
 		var length = m.length;
-		var result = new Uint16Array(length);
+		var result = new Uint16Array(length + 2);
 		for (var i = 0; i < length; i++) {
+			// u = (a0 + xi * y0) * mInv mod b
 			var u = (((result[0] + x[i] * y[0]) & 0xffff) * mInv) & 0xffff;
+			// A = A + xi * y
 			var carry = 0;
 			for (var j = 0; j < length; j++) {
-				var sum = carry + x[i] * y[j];
-				carry = sum >> 16;
-				sum = sum & 0xffff;
-				sum = sum + u * m[j];
-				if (j > 0)
-					result[j - 1] = sum & 0xffff;
-				carry = carry + (sum >> 16);
+				var sum = carry + result[j] + x[i] * y[j];
+				carry = sum >>> 16;
+				result[j] = sum & 0xffff;
 			}
-			result[length - 1] = carry;
+			var sum = result[length] + carry;
+			result[length] = sum & 0xffff;
+			result[length + 1] += sum >>> 16;
+			// A = A + u * m
+			var carry = 0;
+			for (var j = 0; j < length; j++) {
+				var sum = carry + result[j] + u * m[j];
+				carry = sum >>> 16;
+				result[j] = sum & 0xffff;
+			}
+			var sum = result[length] + carry;
+			result[length] = sum & 0xffff;
+			result[length + 1] += sum >>> 16;
+			// A = A / b
+			if (result[0] != 0)
+				console.log('error detected!');
+			for (var j = 0; j <= length; j++)
+				result[j] = result[j + 1];
+			result[length + 1] = 0;
 		}
 		// check if result > m
 		var greater = false;
-		for (var i = length - 1; i >= 0; i--)
-			if (result[i] > m[i]) {
-				greater = true;
-				break;
-			} else if (result < m[i])
-				break;
+		if (result[length] > 0)
+			greater = true;
+		else
+			for (var i = length - 1; i >= 0; i--)
+				if (result[i] > m[i]) {
+					greater = true;
+					break;
+				} else
+					if (result[i] < m[i])
+						break;
 		if (greater) {
 			carry = 0;
 			for (var i = 0; i < length; i++) {
@@ -900,8 +920,9 @@
 				result[i] = diff & 0xffff;
 				carry = diff >> 16;
 			}
+			result[length] += carry;
 		}
-		return result;
+		return result.subarray(0, length);
 	};
 	window.montgomeryMultiplication = montgomeryMultiplication;
 

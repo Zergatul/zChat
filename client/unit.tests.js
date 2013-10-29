@@ -231,8 +231,8 @@
 
 	window._tt = function () {
 		var failed = false;
-		for (var i = 0; i < 10; i++) {
-			var len = random.default.nextRange(3, 10);
+		for (var i = 0; i < 100; i++) {
+			var len = random.default.nextRange(20, 50);
 			var a = BigInt.parse(randomNumber(len, 1));
 			var e = BigInt.parse(randomNumber(len, 1));
 			var m = BigInt.parse(randomNumber(len, 2));
