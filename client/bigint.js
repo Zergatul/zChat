@@ -739,6 +739,8 @@
 			x[i + shift] = sum & 0xffff;
 			carry = sum >>> 16;
 		}
+		if (i + shift < xLen)
+			x[i + shift] += carry;
 	};
 
 	var divide = function (x, y) {
