@@ -153,3 +153,12 @@ function divideFuckingShit(check) {
 	sw.stop();
 	console.log(sw.totalElapsed() + 'ms');
 };
+
+function profiling(my) {
+	if (my)
+		for (var i = 0; i < 100; i++)
+			BigInt.randomPrime(128, random.default);
+	else
+		for (var i = 0; i < 100; i++)
+			randProbPrime(128);
+};
