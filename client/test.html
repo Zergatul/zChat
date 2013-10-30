@@ -1,7 +1,5 @@
 <html>
 <head>
-	<script type="text/javascript" src="stopwatch.js"></script>
-
 	<script type="text/javascript" src="bithelper.js"></script>
 	<script type="text/javascript" src="md2.js"></script>
 	<script type="text/javascript" src="md4.js"></script>
@@ -15,51 +13,16 @@
 	<script type="text/javascript" src="paddings.js"></script>
 	<script type="text/javascript" src="random.js"></script>
 	<!-- for tesing -->
+	<script type="text/javascript" src="bigint.unit.test.js"></script>
+	<script type="text/javascript" src="bigint.perf.test.js"></script>
+	<script type="text/javascript" src="stopwatch.js"></script>
 	<script type="text/javascript" src="test.js"></script>
 	<script type="text/javascript" src="ThirdParty/BigInt.js"></script>
 	<script type="text/javascript" src="unit.tests.js"></script>
 	<script type="text/javascript" src="perf.tests.js"></script>
 	<script type="text/javascript" src="ThirdParty/FileSaver.js"></script>
-	<script type="text/javascript">
-		function btnClick() {
-			var textbox = document.querySelector('#t');
-			document.querySelector('#s_md5').innerHTML = bh.byteArrayToHex(md5(textbox.value));
-			document.querySelector('#s_sha224').innerHTML = bh.byteArrayToHex(sha2(textbox.value, 224));
-			document.querySelector('#s_sha256').innerHTML = bh.byteArrayToHex(sha2(textbox.value, 256));
-		}
-		function aesClick() {
-			var key = bh.hexToByteArray(document.querySelector('#key').value);
-			var data = bh.hexToByteArray(document.querySelector('#plaintext').value);
-			var encData = aes.encrypt(data, key);
-			document.querySelector('#aesEnc').innerHTML = bh.byteArrayToHex(encData);
-			var decData = aes.decrypt(encData, key);
-			document.querySelector('#aesDec').innerHTML = bh.byteArrayToHex(decData);
-		}
-	</script>
 </head>
 <body>
-	<input type="text" value="0" id="t" />
-	<input type="button" value="test" onclick="btnClick();" />
-	<br />
-	<fieldset>
-		<legend>MD5</legend>
-		<span id="s_md5"></span>
-	</fieldset>
-	<fieldset>
-		<legend>SHA224</legend>
-		<span id="s_sha224"></span>
-	</fieldset>
-	<fieldset>
-		<legend>SHA256</legend>
-		<span id="s_sha256"></span>
-	</fieldset>
-	<hr />
-	Text: <input type="text" value="00112233445566778899aabbccddeeff" id="plaintext" style="width: 400px" /> <br />
-	Pwd: <input type="text" value="000102030405060708090a0b0c0d0e0f" id="key" style="width: 400px" /> <br />
-	<input type="button" value="encode" onclick="aesClick();" />
-	<br />
-	<span id="aesEnc"></span>
-	<br />
-	<span id="aesDec"></span>
+	<applet code="BigIntApplet.class" width="200" height="32"></applet>
 </body>
 </html>
