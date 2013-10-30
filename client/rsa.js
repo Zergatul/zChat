@@ -11,24 +11,22 @@
 
 		// generate primes, and check for difference must be > 2^(keyLength / 4)
 		do {
-			var p = BigInt.randomPrime(keyLength / 2);
-			var q = BigInt.randomPrime(keyLength / 2);
-			var delta = BigInt.sub(p, q);
+			var p = BigInt.randomPrime(keyLength / 2, random.SHA2PRNG);
+			var q = BigInt.randomPrime(keyLength / 2, random.SHA2PRNG);
+			var delta = p.substract(q);
 		} while (delta.bitLength() <= keyLength / 4);
 
-		var one = BigInt.fromInt(1);
-
-		var n = BigInt.mult(p, q);
-		var phi = BigInt.mult(BigInt.sub(p, one), BigInt.sub(q, one));
+		var n = p.multiply(q);
+		var phi = p.substract(BigInt.ONE).multiply(q.substract(BigInt.ONE));
 
 		var e = BigInt.fromInt(65537);
 		var euResult = BigInt.extendedEuclidean(phi, e);
 		var d = euResult.y;
-		if (d.lessThanZero())
-			d = BigInt.add(d, phi);
+		if (d.compareTo(BigInt.ZERO) < 0)
+			d = d.add(phi);
 
 		// checking
-		if (BigInt.mod(BigInt.mult(e, d), phi).compareTo(one) != 0)
+		if (!e.multiply(d).mod(phi).equals(BigInt.ONE))
 			throw 'Something wrong';
 
 		return {
@@ -44,7 +42,7 @@
 		if (message.compareTo(publicKey.n) > 0)
 			throw 'Cannot encrypt message which is greater than key';
 
-		return BigInt.modPow(message, publicKey.e, publicKey.n);
+		return message.modPow(publicKey.e, publicKey.n);
 	};
 
 	window.rsa.decrypt = function (cypher, privateKey) {
@@ -54,7 +52,7 @@
 		if (cypher.compareTo(privateKey.n) > 0)
 			throw 'Invalid cypher';
 
-		return BigInt.modPow(cypher, privateKey.d, privateKey.n);
+		return cypher.modPow(privateKey.d, privateKey.n);
 	};
 
 })();
