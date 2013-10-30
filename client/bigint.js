@@ -140,7 +140,12 @@
 				return 1;
 		}
 		return 0;
-	}
+	};
+
+	window.BigInt.prototype.equals = function (val) {
+		//
+		return this.compareTo(val) == 0;
+	};
 
 	window.BigInt.prototype.toString = function (radix) {
 		if (radix == undefined)
@@ -162,7 +167,7 @@
 					int16 = zeros[digitsCount - int16.length] + int16;
 				result += int16;
 			}
-			return result;
+			return this._sign == -1 ? '-' + result : result;
 		} else {
 			var radixLength = digitsPerUint16[radix];
 			var radixUint16 = uint16Radix[radix];
@@ -180,7 +185,7 @@
 					rem = zeros[radixLength - rem.length] + rem;
 				result = rem + result;
 			}
-			return result;
+			return this._sign == -1 ? '-' + result : result;
 		}
 	};
 
@@ -209,9 +214,11 @@
 		var result = new BigInt();
 		var length = this._length;
 		var data = new Uint16Array(length);
-		data.set(this._data, length);
+		for (var i = 0; i < length; i++)
+			data[i] = this._data[i];
 		result._data = data;
 		result._sign = -this._sign;
+		result._length = length;
 		return result;
 	};
 
@@ -341,58 +348,58 @@
 			return m.compareTo(BigInt.ONE) == 0 ? BigInt.ZERO : BigInt.ONE;
         var base = this.compareTo(m) >= 0 ? this.mod(m) : this;
 
-        var result = BigInt.ONE;
-		for (var i = exponent.bitLength() - 1; i >= 0; i--) {
-			result = result.multiply(result).mod(m);
-			if (exponent.isBitSet(i))
-				result = result.multiply(base).mod(m);
+        if (m.isBitSet(0)) {
+        	// if modulus is odd - use montgomery exponentiation
+	    	var l = m._length;
+			var r = new BigInt();
+			r._length = l + 1;
+			r._data = new Uint16Array(l + 1);
+			r._data[l] = 1;
+			r._sign = 1;
+
+			var x = new Uint16Array(l);
+			x.set(this._data.subarray(0, l), 0);
+
+			var mPrime = -extendedEuclideanInt32(0x10000, m._data[0]).y;
+			if (mPrime < 0)
+				mPrime = mPrime + 0x10000;
+
+			var xPrime = this.multiply(r).mod(m)._data;
+			var buf = new Uint16Array(l);
+			buf.set(xPrime, 0);
+			xPrime = buf;
+
+			var a = r.mod(m)._data;
+			var buf = new Uint16Array(l);
+			buf.set(a, 0);
+			a = buf;
+
+			m = m._data.subarray(0, m._length);
+
+			for (var i = exponent.bitLength() - 1; i >= 0; i--) {
+				a = montgomeryMultiplication(a, a, m, mPrime);
+				if (exponent.isBitSet(i))
+					a = montgomeryMultiplication(a, xPrime, m, mPrime);
+			}
+			var one = new Uint16Array(l);
+			one[0] = 1;
+			a = montgomeryMultiplication(a, one, m, mPrime);
+			
+			while (a[l - 1] == 0)
+				l--;
+			var result = new BigInt();
+			result._sign = 1;
+			result._data = a;
+			result._length = l;
+        } else {
+	    	var result = BigInt.ONE;
+			for (var i = exponent.bitLength() - 1; i >= 0; i--) {
+				result = result.multiply(result).mod(m);
+				if (exponent.isBitSet(i))
+					result = result.multiply(base).mod(m);
+			}
 		}
 
-		return result;
-	};
-
-	window.BigInt.prototype.modPow2 = function (exponent, m) {
-		var l = m._length;
-		var r = new BigInt();
-		r._length = l + 1;
-		r._data = new Uint16Array(l + 1);
-		r._data[l] = 1;
-		r._sign = 1;
-
-		var x = new Uint16Array(l);
-		x.set(this._data.subarray(0, l), 0);
-
-		var mPrime = -extendedEuclideanInt32(0x10000, m._data[0]).y;
-		if (mPrime < 0)
-			mPrime = mPrime + 0x10000;
-
-		var xPrime = this.multiply(r).mod(m)._data;
-		var buf = new Uint16Array(l);
-		buf.set(xPrime, 0);
-		xPrime = buf;
-
-		var a = r.mod(m)._data;
-		var buf = new Uint16Array(l);
-		buf.set(a, 0);
-		a = buf;
-
-		m = m._data.subarray(0, m._length);
-
-		for (var i = exponent.bitLength() - 1; i >= 0; i--) {
-			a = montgomeryMultiplication(a, a, m, mPrime);
-			if (exponent.isBitSet(i))
-				a = montgomeryMultiplication(a, xPrime, m, mPrime);
-		}
-		var one = new Uint16Array(l);
-		one[0] = 1;
-		a = montgomeryMultiplication(a, one, m, mPrime);
-		
-		while (a[l - 1] == 0)
-			l--;
-		var result = new BigInt();
-		result._sign = 1;
-		result._data = a;
-		result._length = l;
 		return result;
 	};
 
@@ -510,7 +517,6 @@
 			return result;
 		}
 		
-		// constant can calculate from _multiplyPerfTest
 		if (length2 <= 50) {
 			// O(n^2) algo
 			for (var s = 0; s < length1 + length2 - 1; s++)
@@ -622,7 +628,9 @@
 		}
 	};
 
-	// assumes divisor is Uint16
+	// data - Uint16Array
+	// length - Int32
+	// divisor - Uint16
 	var divideByUint16 = function (data, length, divisor) {
 		data = data.subarray(0, length);
 		var buf = new Uint16Array(length);
@@ -633,7 +641,7 @@
 		while (index >= 0) {
 			var d = data[index];
 			if (index != length - 1)
-				d = d | (data[index + 1] << 16);
+				d = d + data[index + 1] * 0x10000;
 			var e = Math.floor(d / divisor);
 			quotient[index] = e;
 
@@ -671,10 +679,10 @@
 	};
 
 	// x - Uint16Array
-	// xLen - integer
+	// xLen - Int32
 	// y - Uint16Array
-	// yLen - integer
-	// shift - integer
+	// yLen - Int32
+	// shift - Int32
 	var shiftCompare = function (x, xLen, y, yLen, shift) {
 		if (xLen < yLen + shift)
 			return -1;
@@ -703,11 +711,11 @@
 	};
 
 	// x - Uint16Array
-	// xLen - integer
+	// xLen - Int32
 	// y - Uint16Array
-	// yLen - integer
+	// yLen - Int32
 	// m - Uint16
-	// shift - integer
+	// shift - Int32
 	// x = x - ((y * m) << shift)
 	// returns:
 	//		true - if x >= 0
@@ -926,7 +934,6 @@
 		}
 		return result.subarray(0, length);
 	};
-	window.montgomeryMultiplication = montgomeryMultiplication;
 
 	// a, b - Int32 (a >= b)
 	// returns { x, y, d }, where d = gcd(a, b), ax + by = d
@@ -950,7 +957,6 @@
 		}
 		return { d: a, x: x2, y: y2 };
 	};
-	window.extendedEuclideanInt32 = extendedEuclideanInt32;
 
 	// ****************************************************************************************
 	// ****************************************************************************************
@@ -1046,38 +1052,31 @@
 
 	// random prime with length = [bitLength, bitLength + 1]
 	window.BigInt.randomPrime = function (bitLength, rnd) {
-		var repeatCount = 1;
 		while (true) {
 			var randomNumber = BigInt.random(bitLength, rnd);
 			randomNumber._data[0] = randomNumber._data[0] | 1;
 			if (randomNumber.isProbablePrime())
 				break;
-			repeatCount++;
 		}
-		console.log('Rounds: ' + repeatCount);
 		return randomNumber;
 	};
 
-	/* TODO */
+	// a >= b
+	// returns { x, y, d }, where d = gcd(a, b), ax + by = d
 	window.BigInt.extendedEuclidean = function (a, b) {
-		if (!(a instanceof BigInt) || !(b instanceof BigInt))
-			throw 'Invalid arguments';
 		if (a.compareTo(b) < 0)
 			throw 'a must be greater than b';
 
-		var zero = new BigInt();
-		var one = BigInt.fromInt(1);
+		if (b._sign == 0)
+			return { d: a, x: BigInt.ONE, y: BigInt.ZERO };
 
-		if (b.isZero())
-			return { d: a, x: one, y: zero };
-
-		var x2 = one, x1 = zero, y2 = zero, y1 = one, x, y, r;
-		while (!b.isZero()) {
-			var dm = divMod(a, b);
-			q = dm.div;
-			r = dm.mod;
-			x = BigInt.sub(x2, BigInt.mult(q, x1));
-			y = BigInt.sub(y2, BigInt.mult(q, y1));
+		var x2 = BigInt.ONE, x1 = BigInt.ZERO, y2 = BigInt.ZERO, y1 = BigInt.ONE, x, y, r;
+		while (b._sign != 0) {
+			var div = a.divide(b);
+			q = div.quotient;
+			r = div.remainder;
+			x = x2.substract(q.multiply(x1));
+			y = y2.substract(q.multiply(y1));
 			a = b;
 			b = r;
 			x2 = x1;
@@ -1108,8 +1107,20 @@
 	for (var i = 2; i < 37; i++)
 		bitsPerDigit[i] = Math.ceil(1024 * Math.log(i) / Math.LN2);
 
-	// used by isProbablePrime
-	var firstPrimes = new Uint16Array([2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97]);
+	// used by isProbablePrime; first primes < 256
+	var firstPrimes = new Array();
+	firstPrimes.push(2);
+	for (var i = 3; i < 0x100; i++) {
+		var isPrime = true;
+		for (var j = 0; j < firstPrimes.length; j++)
+			if (i % firstPrimes[j] == 0) {
+				isPrime = false;
+				break;
+			}
+		if (isPrime)
+			firstPrimes.push(i);
+	}
+	firstPrimes = new Uint16Array(firstPrimes);
 
 	// public constants
 	window.BigInt.ZERO = new BigInt();
