@@ -198,8 +198,8 @@
 		return result;
 	};
 
-	window.BigInt.prototype.toByteArray = function () {
-		var result = new Uint8Array(this._data.length << 1);
+	window.BigInt.prototype.toUint8Array = function (length) {
+		var result = new Uint8Array(length || (this._data.length << 1));
 		var index = 0;
 		for (var i = this._data.length - 1; i >= 0; i--) {
 			result[index++] = this._data[i] >>> 8;
@@ -987,6 +987,22 @@
 		return result;
 	};
 
+	window.BigInt.fromUint8Array = function (bytes) {
+		var result = new BigInt();
+		result._sign = 1;
+		result._length = Math.ceil(bytes.length / 2);
+		var data = new Uint16Array(result._length);
+		for (var i = 0; i < data.length; i++) {
+			data[i] = 0;
+			if (bytes.length - 1 - i * 2 >= 0)
+				data[i] = data[i] | (bytes[bytes.length - 1 - i * 2]);
+			if (bytes.length - 2 - i * 2 >= 0)
+				data[i] = data[i] | (bytes[bytes.length - 2 - i * 2] << 8);
+		}
+		result._data = data;
+		return result;
+	};
+
 	window.BigInt.parse = function (val, radix) {
 		if (radix == undefined)
 			radix = 10;
@@ -1030,7 +1046,10 @@
 		return result;
 	};
 
-	window.BigInt.random = function (bitLength, rnd) {
+	// generate random number:
+	// when strict == true --> bitLength will be strictly equal to bitLength
+	// when strict == false --> bitLength will be less or equal to bitLength
+	window.BigInt.random = function (bitLength, rnd, strict) {
 		var result = new BigInt();
 		result._sign = 1;
 		var length = bitLength >>> 4;
@@ -1038,10 +1057,17 @@
 		if (leadBits != 0)
 			length++;
 		var data = rnd.getUint16Array(length);
-		if ((bitLength & 0xf) != 0)
-			data[length - 1] = data[length - 1] & ((1 << leadBits) - 1);
-		while (data[length - 1] == 0)
-			length--;
+		if (strict) {
+			if (leadBits != 0)
+				data[length - 1] = data[length - 1] & ((1 << leadBits) - 1) | (1 << (leadBits - 1));
+			else
+				data[length - 1] = data[length - 1] | 0x8000;
+		} else {
+			if (leadBits != 0)
+				data[length - 1] = data[length - 1] & ((1 << leadBits) - 1);
+			while (data[length - 1] == 0)
+				length--;
+		}
 		result._length = length;
 		if (length != 0)
 			result._data = data;
@@ -1050,10 +1076,9 @@
 		return result;
 	};
 
-	// random prime with length = [bitLength, bitLength + 1]
 	window.BigInt.randomPrime = function (bitLength, rnd) {
 		while (true) {
-			var randomNumber = BigInt.random(bitLength, rnd);
+			var randomNumber = BigInt.random(bitLength, rnd, true);
 			randomNumber._data[0] = randomNumber._data[0] | 1;
 			if (randomNumber.isProbablePrime())
 				break;
@@ -1086,6 +1111,12 @@
 		}
 		return { d: a, x: x2, y: y2 };
 	};
+
+	// ****************************************************************************************
+	// ****************************************************************************************
+	// private constants
+	// ****************************************************************************************
+	// ****************************************************************************************
 
 	// used by toString
 	var digitsPerUint16 = new Uint8Array(37);
