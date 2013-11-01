@@ -199,11 +199,17 @@
 	};
 
 	window.BigInt.prototype.toUint8Array = function (length) {
-		var result = new Uint8Array(length || (this._data.length << 1));
-		var index = 0;
-		for (var i = this._data.length - 1; i >= 0; i--) {
-			result[index++] = this._data[i] >>> 8;
-			result[index++] = this._data[i] & 0xff;
+		var dataLength = this._length << 1;
+		if (this._data[this._length - 1] < 256)
+			dataLength--;
+		var result = new Uint8Array(length || dataLength);
+		for (var i = result.length - 1; i >= 0; i--) {
+			var index = result.length - i - 1;
+			if (index >= 0 && (index >> 1) < this._length)
+				if ((index & 1) == 1)
+					result[i] = this._data[index >> 1] >> 8;
+				else
+					result[i] = this._data[index >> 1] & 0xff;
 		}
 		return result;
 	};
@@ -1000,6 +1006,8 @@
 				data[i] = data[i] | (bytes[bytes.length - 2 - i * 2] << 8);
 		}
 		result._data = data;
+		while (data[result._length - 1] == 0)
+			result._length--;
 		return result;
 	};
 
