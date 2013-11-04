@@ -243,13 +243,13 @@
 			var cmp = this.unsignedCompareTo(val);
 			if (cmp == 0)
 				return BigInt.ZERO;
-			var result = cmp > 0 ? unsignedSubstract(this, val) : unsignedSubstract(val, this);
+			var result = cmp > 0 ? unsignedSubtract(this, val) : unsignedSubtract(val, this);
 			result._sign = cmp == sign1 ? 1 : -1;
 			return result;
 		}
 	};
 
-	window.BigInt.prototype.substract = function (val) {
+	window.BigInt.prototype.subtract = function (val) {
 		var sign1 = this._sign;
 		var sign2 = val._sign;
 		if (sign2 == 0)
@@ -264,7 +264,7 @@
 			var cmp = this.unsignedCompareTo(val);
 			if (cmp == 0)
 				return BigInt.ZERO;
-			var result = cmp > 0 ? unsignedSubstract(this, val) : unsignedSubstract(val, this);
+			var result = cmp > 0 ? unsignedSubtract(this, val) : unsignedSubtract(val, this);
 			result._sign = cmp == sign1 ? 1 : -1;
 			return result;
 		}
@@ -475,7 +475,7 @@
 		return result;
 	};
 
-	var unsignedSubstract = function (num1, num2) {
+	var unsignedSubtract = function (num1, num2) {
 		var result = new BigInt();
 		var data1 = num1._data;
 		var data2 = num2._data;

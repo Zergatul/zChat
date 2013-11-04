@@ -11,15 +11,20 @@
 		return result;
 	};
 
-	var printResults = function (s, t1, t2) {
+	var printResults = function (s, t1, t2, t3) {
 		var addInfo;
-		if (t1 > t2)
-			addInfo = 'other is faster by ' + Math.round(100 * (t1 - t2) / t2) + '%';
-		if (t1 < t2)
-			addInfo = 'my is faster by ' + Math.round(100 * (t2 - t1) / t1) + '%';
-		if (t1 == t2)
-			addInfo = 'speed is equal';
-		console.log(s + 'my: ' + t1 + ' ms; other: ' + t2 + ' ms; ' + addInfo);
+		var min = Math.min(t1, t2, t3);
+		var s1, s2, s3;
+		if (min == 0) {
+			s1 = '';
+			s2 = '';
+			s3 = '';
+		} else {
+			s1 = t1 == min ? '0' : '+' + Math.round(100 * (t1 - min) / min) + '%';
+			s2 = t2 == min ? '0' : '+' + Math.round(100 * (t2 - min) / min) + '%';
+			s3 = t3 == min ? '0' : '+' + Math.round(100 * (t3 - min) / min) + '%';
+		}
+		console.log(s + 'my: ' + t1 + ' ms (' + s1 + '); BigInt.js: ' + t2 + ' ms (' + s2 + '); jsbn.js: ' + t3 + ' ms (' + s3 + ');');
 	};
 
 	window._BigIntPerfTest.add = function () {
@@ -31,8 +36,10 @@
 			var b = BigInt.parse(num2);
 			var c = str2bigInt(num1, 10);
 			var d = str2bigInt(num2, 10);
+			var e = new BigInteger(num1, 10);
+			var f = new BigInteger(num2, 10);
 
-			if (a.add(b).toString() != bigInt2str(add(c, d), 10)) {
+			if (a.add(b).toString() != bigInt2str(add(c, d), 10) || a.add(b).toString() != e.add(f).toString()) {
 				console.log('Validation failed');
 				console.log('a: ' + a.toString());
 				console.log('b: ' + b.toString());
@@ -45,16 +52,24 @@
 			for (var i = 0; i < count; i++)
 				a.add(b);
 			sw.stop();
-			t1 = sw.totalElapsed();
+			var t1 = sw.totalElapsed();
 			sw.reset();
 
 			sw.start();
 			for (var i = 0; i < count; i++)
 				add(c, d);
 			sw.stop();
-			t2 = sw.totalElapsed();
+			var t2 = sw.totalElapsed();
+			sw.reset();
 
-			printResults('Number length: ' + len + '; ', t1, t2);
+			sw.start();
+			for (var i = 0; i < count; i++)
+				e.add(f);
+			sw.stop();
+			var t3 = sw.totalElapsed();
+			sw.reset();
+
+			printResults('Bits: ' + a.bitLength() + '; ', t1, t2, t3);
 		};
 
 		foo(10, 5000000);
@@ -66,7 +81,7 @@
 		foo(1000, 800000);
 	};
 
-	window._BigIntPerfTest.substract = function () {
+	window._BigIntPerfTest.subtract = function () {
 
 		var foo = function (len, count) {
 			var num1 = '5' + randomNumber(len - 1);
@@ -75,8 +90,10 @@
 			var b = BigInt.parse(num2);
 			var c = str2bigInt(num1, 10);
 			var d = str2bigInt(num2, 10);
+			var e = new BigInteger(num1, 10);
+			var f = new BigInteger(num2, 10);
 
-			if (a.substract(b).toString() != bigInt2str(sub(c, d), 10)) {
+			if (a.subtract(b).toString() != bigInt2str(sub(c, d), 10) || a.subtract(b).toString() != e.subtract(f).toString()) {
 				console.log('Validation failed');
 				console.log('a: ' + a.toString());
 				console.log('b: ' + b.toString());
@@ -87,18 +104,26 @@
 
 			sw.start();
 			for (var i = 0; i < count; i++)
-				a.substract(b);
+				a.subtract(b);
 			sw.stop();
-			t1 = sw.totalElapsed();
+			var t1 = sw.totalElapsed();
 			sw.reset();
 
 			sw.start();
 			for (var i = 0; i < count; i++)
 				sub(c, d);
 			sw.stop();
-			t2 = sw.totalElapsed();
+			var t2 = sw.totalElapsed();
+			sw.reset();
 
-			printResults('Number length: ' + len + '; ', t1, t2);
+			sw.start();
+			for (var i = 0; i < count; i++)
+				e.subtract(f);
+			sw.stop();
+			var t3 = sw.totalElapsed();
+			sw.reset();
+
+			printResults('Bits: ' + a.bitLength() + '; ', t1, t2, t3);
 		};
 
 		foo(10, 5000000);
@@ -119,8 +144,14 @@
 			var b = BigInt.parse(num2);
 			var c = str2bigInt(num1, 10);
 			var d = str2bigInt(num2, 10);
+			var e = new BigInteger(num1, 10);
+			var f = new BigInteger(num2, 10);
 
-			if (a.multiply(b).toString() != bigInt2str(mult(c, d), 10)) {
+			var r1 = a.multiply(b).toString();
+			var r2 = bigInt2str(mult(c, d), 10);
+			var r3 = e.multiply(f).toString();
+
+			if (r1 != r2 || r1 != r3) {
 				console.log('Validation failed');
 				console.log('a: ' + a.toString());
 				console.log('b: ' + b.toString());
@@ -133,16 +164,24 @@
 			for (var i = 0; i < count; i++)
 				a.multiply(b);
 			sw.stop();
-			t1 = sw.totalElapsed();
+			var t1 = sw.totalElapsed();
 			sw.reset();
 
 			sw.start();
 			for (var i = 0; i < count; i++)
 				mult(c, d);
 			sw.stop();
-			t2 = sw.totalElapsed();
+			var t2 = sw.totalElapsed();
+			sw.reset();
 
-			printResults('Number length: ' + len + '; ', t1, t2);
+			sw.start();
+			for (var i = 0; i < count; i++)
+				e.multiply(f);
+			sw.stop();
+			var t3 = sw.totalElapsed();
+			sw.reset();
+
+			printResults('Bits: ' + a.bitLength() + '; ', t1, t2, t3);
 		};
 
 		foo(10, 1000000);

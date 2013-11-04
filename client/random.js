@@ -93,6 +93,8 @@
 			this._state = buf;
 		}
 	};
-	window.random.SHA2PRNG.init(random.default.getUint8Array(32));
+	var seed = new Uint8Array(32);
+	window.crypto.getRandomValues(seed);
+	window.random.SHA2PRNG.init(seed);
 
 })();

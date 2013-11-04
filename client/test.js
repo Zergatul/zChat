@@ -162,3 +162,22 @@ function profiling(my) {
 		for (var i = 0; i < 100; i++)
 			randProbPrime(128);
 };
+
+function fieldTest() {
+	var o1 = { a: 0 };
+	var o2 = { yuyoqytoiyrtqeyrtoeyriotyerityqeirytieurytweyrtouer: 0 };
+
+	var sw = new Stopwatch();
+	sw.start();
+	for (var i = 0; i < 1000000000; i++)
+		o1.a++;
+	sw.stop();
+	console.log(sw.totalElapsed());
+	sw.reset();
+
+	sw.start();
+	for (var i = 0; i < 1000000000; i++)
+		o2.yuyoqytoiyrtqeyrtoeyriotyerityqeirytieurytweyrtouer++;
+	sw.stop();
+	console.log(sw.totalElapsed());
+}
