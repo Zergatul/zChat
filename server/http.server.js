@@ -44,8 +44,6 @@ var show404 = function (response) {
 };
 
 var httpServer = http.createServer(function (request, response) {
-	console.log(request.url);
-
 	if (request.method != 'GET') {
 		show404(response);
 		return;
