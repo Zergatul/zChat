@@ -7,13 +7,17 @@ module.exports = {};
 var mime = {
 	html: 'text/html; charset=UTF-8',
 	css: 'text/css; charset=UTF-8',
-	js: 'application/javascript; charset=UTF-8'
+	js: 'application/javascript; charset=UTF-8',
+	ico: 'image/x-icon'
 };
 
 var files = {
 	'/': { content: fs.readFileSync('index.html'), mime: mime.html },
+	'/css/zc.css': {},
 	'/css/bootstrap.css': {},
-	'/css/bootstrap-responsive.css': {}
+	'/css/bootstrap-responsive.css': {},
+	'/favicon.ico': {},
+	'/newmessage.ico': {}
 };
 
 var jss = fs.readdirSync('js');
@@ -40,6 +44,8 @@ var show404 = function (response) {
 };
 
 var httpServer = http.createServer(function (request, response) {
+	console.log(request.url);
+
 	if (request.method != 'GET') {
 		show404(response);
 		return;
@@ -51,7 +57,10 @@ var httpServer = http.createServer(function (request, response) {
 	}
 
 	var file = files[request.url];
-	response.writeHead(200, { 'Content-Type': file.mime });
+	response.writeHead(200, {
+		'Content-Type': file.mime,
+		'Cache-Control': 'max-age=' + settings.cacheMaxAge
+	});
 	response.write(file.content);
 	response.end();
 });
