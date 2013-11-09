@@ -851,7 +851,7 @@
 	};
 
 	var passesMillerRabin = function (x, count) {
-		var xMinusOne = x.substract(BigInt.ONE);
+		var xMinusOne = x.subtract(BigInt.ONE);
 		var shift = 1;
 		while (!x.isBitSet(shift))
 			shift++;
@@ -1108,8 +1108,8 @@
 			var div = a.divide(b);
 			q = div.quotient;
 			r = div.remainder;
-			x = x2.substract(q.multiply(x1));
-			y = y2.substract(q.multiply(y1));
+			x = x2.subtract(q.multiply(x1));
+			y = y2.subtract(q.multiply(y1));
 			a = b;
 			b = r;
 			x2 = x1;

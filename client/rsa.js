@@ -22,11 +22,11 @@
 		do {
 			var p = BigInt.randomPrime(keyLength / 2 + random.default.nextRange(1, 4), random.SHA2PRNG);
 			var q = BigInt.randomPrime(keyLength / 2 + random.default.nextRange(1, 4), random.SHA2PRNG);
-			var delta = p.substract(q);
+			var delta = p.subtract(q);
 		} while (delta.bitLength() <= keyLength / 4);
 
 		var n = p.multiply(q);
-		var phi = p.substract(BigInt.ONE).multiply(q.substract(BigInt.ONE));
+		var phi = p.subtract(BigInt.ONE).multiply(q.subtract(BigInt.ONE));
 
 		var e = BigInt.fromInt(65537);
 		var euResult = BigInt.extendedEuclidean(phi, e);

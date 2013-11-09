@@ -2,6 +2,8 @@
 
 	if (bh == undefined)
 		throw 'bithelper.js not loaded';
+	if (Padding == undefined)
+		throw 'paddings.js not loaded';
 
 	var Sbox = new Uint8Array([
 		0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76, 
@@ -152,6 +154,7 @@
 		0x4257b8d0]);
 
 	var ffMul = function (num) {
+		//
 		return ((num & 0x7f7f7f7f) << 1) ^ (((num & 0x80808080) >>> 7) * 0x0000001b);
 	};
 
@@ -401,14 +404,17 @@
 
 	window.aes = {};
 
-	window.aes.encrypt = function (data, keyData) {
+	window.aes.encrypt = function (data, keyData, padding) {
 
-		if (!(data instanceof Uint8Array) || !(keyData instanceof Uint8Array))
+		if (data instanceof Array)
+			data = new Uint8Array(data);
+		if (keyData instanceof Array)
+			keyData = new Uint8Array(keyData);
+		if (!(data instanceof Uint8Array) || !(keyData instanceof Uint8Array) || !(padding instanceof Padding))
 			throw 'Invalid parameters';
 
 		var p = {};
-		p.bytes = bh.getByteArray(data);
-		p.key = bh.getByteArray(keyData);
+		p.key = keyData;
 
 		p.aesVersion = p.key.length * 8;
 		p.keySize = p.key.length / 4;
@@ -417,16 +423,32 @@
 
 		p.rounds = 6 + p.keySize;
 		generateWorkingKey(p, true);
-		unpackBlock(p);
-		encryptBlock(p);
 
-		return packBlock(p);
+		var padded = padding.pad(data, 16);
+		var enc = new Uint8Array(padded.length);
+		for (var i = 0; i < padded.length / 16; i++) {
+			p.bytes = padded.subarray(i * 16, (i + 1) * 16);
+			unpackBlock(p);
+			encryptBlock(p);
+			enc.set(packBlock(p), i * 16);
+		}
+
+		return enc;
 	};
 
-	window.aes.decrypt = function (data, keyData) {
+	window.aes.decrypt = function (data, keyData, padding) {
+
+		if (data instanceof Array)
+			data = new Uint8Array(data);
+		if (keyData instanceof Array)
+			keyData = new Uint8Array(keyData);
+		if (!(data instanceof Uint8Array) || !(keyData instanceof Uint8Array) || !(padding instanceof Padding))
+			throw 'Invalid parameters';
+		if (data.length % 16 != 0)
+			throw 'Invalid data length';
+
 		var p = {};
-		p.bytes = bh.getByteArray(data);
-		p.key = bh.getByteArray(keyData);
+		p.key = keyData;
 
 		p.aesVersion = p.key.length * 8;
 		p.keySize = p.key.length / 4;
@@ -435,9 +457,17 @@
 
 		p.rounds = 6 + p.keySize;
 		generateWorkingKey(p, false);
-		unpackBlock(p);
-		decryptBlock(p);
 
-		return packBlock(p);
+		var dec = new Uint8Array(data.length);
+		for (var i = 0; i < data.length / 16; i++) {
+			p.bytes = data.subarray(i * 16, (i + 1) * 16);
+			unpackBlock(p);
+			decryptBlock(p);
+			dec.set(packBlock(p), i * 16);
+		}
+
+		var padCount = padding.unpad(dec);
+
+		return dec.subarray(0, dec.length - padCount);
 	};
 })();
