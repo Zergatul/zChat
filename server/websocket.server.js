@@ -24,21 +24,29 @@ pck.cl.nick = 1;
 pck.cl.chatInvite = 2;
 pck.cl.acceptInvite = 3;
 pck.cl.declineInvite = 4;
-pck.cl.message = 5;
+pck.cl.rsaParams = 5;
+pck.cl.sessionKey = 6;
+pck.cl.message = 7;
 pck.srv.nickResponse = 1;
 pck.srv.otherUserChatInvite = 2;
 pck.srv.chatInviteResponse = 3;
 pck.srv.userInviteResponse = 4;
-pck.srv.sessionInit = 5;
-pck.srv.message = 6;
-pck.srv.partnerDisconnect = 7;
+pck.srv.rsaParams = 5;
+pck.srv.sessionKey = 6;
+pck.srv.sessionInit = 7;
+pck.srv.message = 8;
+pck.srv.partnerDisconnect = 9;
 
 var state = {
 	INITIAL: 1,
 	WAIT_FOR_INVITE_RESPONSE: 3,
 	INVITING_PROCESS: 4,
-	CHATTING_PRIMARY: 5,
-	CHATTING_SECONDARY: 6
+	RSA_PARAMS_SENDING: 6,
+	WAITING_FOR_RSA_PARAMS: 7,
+	SESSION_KEY_SENDING: 8,
+	WAITING_FOR_SESSION_KEY: 9,
+	CHATTING_PRIMARY: 10,
+	CHATTING_SECONDARY: 11
 };
 
 var okMessage = 'ok';
@@ -67,6 +75,14 @@ var onMessage = function (socket, message) {
 	}
 	if (id == pck.cl.declineInvite) {
 		onDeclineInvite(socket);
+		return;
+	}
+	if (id == pck.cl.rsaParams) {
+		onRsaParams(socket, data);
+		return;
+	}
+	if (id == pck.cl.sessionKey) {
+		onSessionKey(socket, data);
 		return;
 	}
 	if (id == pck.cl.message) {
@@ -155,16 +171,13 @@ var onAcceptInvite = function (socket) {
 	var partner = users[nick];
 	var user = users[partner.invitedBy];
 
-	user.state = state.CHATTING_PRIMARY;
-	partner.state = state.CHATTING_SECONDARY;
-
-	user.socket.send(pck.srv.userInviteResponse + ':' + okMessage);
+	user.state = state.RSA_PARAMS_SENDING;
+	partner.state = state.WAITING_FOR_RSA_PARAMS;
 
 	user.partner = partner.nick;
 	partner.partner = user.nick;
 
-	user.socket.send(pck.srv.sessionInit + ':' + partner.nick);
-	partner.socket.send(pck.srv.sessionInit + ':' + user.nick);
+	user.socket.send(pck.srv.userInviteResponse + ':' + okMessage);
 };
 
 var onDeclineInvite = function (socket) {
@@ -176,6 +189,79 @@ var onDeclineInvite = function (socket) {
 	partner.state = state.INITIAL;
 
 	user.socket.send(pck.srv.userInviteResponse + ':User declined your invite.');
+};
+
+var onRsaParams = function (socket, data) {
+	var nick = socket._nick;
+	if (nick == undefined) {
+		console.log('User did not send nick.');
+		return;
+	}
+	var user = users[nick];
+	if (user == undefined) {
+		console.log('User is not in the list.');
+		return;
+	}
+	if (user.state != state.RSA_PARAMS_SENDING) {
+		console.log('User is not in RSA_PARAMS_SENDING state.');
+		return;
+	}
+	if (user.partner == undefined) {
+		console.log('User does not have a partner.');
+		return;
+	}
+	var partner = users[user.partner];
+	if (partner == undefined) {
+		console.log('User partner is not in the list');
+		return;
+	}
+	if (partner.state != state.WAITING_FOR_RSA_PARAMS) {
+		console.log('Partner is not in WAITING_FOR_RSA_PARAMS state');
+		return;
+	}
+
+	user.state = state.WAITING_FOR_SESSION_KEY;
+	partner.state = state.SESSION_KEY_SENDING;
+
+	partner.socket.send(pck.srv.rsaParams + ':' + data);
+};
+
+var onSessionKey = function (socket, data) {
+	var nick = socket._nick;
+	if (nick == undefined) {
+		console.log('User did not send nick.');
+		return;
+	}
+	var user = users[nick];
+	if (user == undefined) {
+		console.log('User is not in the list.');
+		return;
+	}
+	if (user.state != state.SESSION_KEY_SENDING) {
+		console.log('User is not in SESSION_KEY_SENDING state.');
+		return;
+	}
+	if (user.partner == undefined) {
+		console.log('User does not have a partner.');
+		return;
+	}
+	var partner = users[user.partner];
+	if (partner == undefined) {
+		console.log('User partner is not in the list');
+		return;
+	}
+	if (partner.state != state.WAITING_FOR_SESSION_KEY) {
+		console.log('Partner is in invalid state');
+		return;
+	}
+
+	user.state = state.CHATTING_SECONDARY;
+	partner.state = state.CHATTING_PRIMARY;
+
+	partner.socket.send(pck.srv.sessionKey + ':' + data);
+
+	user.socket.send(pck.srv.sessionInit + ':' + partner.nick);
+	partner.socket.send(pck.srv.sessionInit + ':' + user.nick);
 };
 
 var onMessagePacket = function (socket, message) {

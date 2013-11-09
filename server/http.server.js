@@ -13,14 +13,12 @@ var mime = {
 var files = {
 	'/': { content: fs.readFileSync('index.html'), mime: mime.html },
 	'/css/bootstrap.css': {},
-	'/css/bootstrap-responsive.css': {},
-	'/js/zc.js': {},
-	'/js/jquery-2.0.3.js': {},
-	'/js/bootstrap.js': {},
-	'/js/sockets.js': {},
-	'/js/bithelper.js': {},
-	'/js/aes.js': {}
+	'/css/bootstrap-responsive.css': {}
 };
+
+var jss = fs.readdirSync('js');
+for (var i = 0; i < jss.length; i++)
+	files['/js/' + jss[i]] = {};
 
 for (var file in files)
 	if (files[file].content == undefined) {

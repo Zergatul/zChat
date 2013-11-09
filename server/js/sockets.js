@@ -5,14 +5,18 @@
 	pck.cl.chatInvite = 2;
 	pck.cl.acceptInvite = 3;
 	pck.cl.declineInvite = 4;
-	pck.cl.message = 5;
+	pck.cl.rsaParams = 5;
+	pck.cl.sessionKey = 6;
+	pck.cl.message = 7;
 	pck.srv.nickResponse = 1;
 	pck.srv.otherUserChatInvite = 2;
 	pck.srv.chatInviteResponse = 3;
 	pck.srv.userInviteResponse = 4;
-	pck.srv.sessionInit = 5;
-	pck.srv.message = 6;	
-	pck.srv.partnerDisconnect = 7;
+	pck.srv.rsaParams = 5;
+	pck.srv.sessionKey = 6;
+	pck.srv.sessionInit = 7;
+	pck.srv.message = 8;
+	pck.srv.partnerDisconnect = 9;
 
 	var okMessage = 'ok';
 
@@ -22,18 +26,21 @@
 		this._handlers = {};
 
 		this._ws = new WebSocket(webSocketAddr);
+
 		this._ws.onopen = function () {
 			if (typeof self._onConnect == 'function') {
 				self._onConnect();
 				delete self._onConnect;
 			}
 		};
+
 		this._ws.onclose = function (event) {
 			if (typeof self._onDisconnect == 'function') {
 				self._onDisconnect();
 				delete self._onDisconnect;
 			}
 		};
+
 		this._ws.onmessage = function (event) {
 			var delimiterIndex = event.data.indexOf(':');
 			var id = event.data.substring(0, delimiterIndex);
@@ -41,6 +48,7 @@
 			var data = event.data.substring(delimiterIndex + 1);
 			resolveSrvPacket(self, id, data);
 		};
+
 		this._ws.onerror = function (event) {
 			if (typeof self._onSocketError == 'function') {
 				self._onSocketError();
@@ -112,6 +120,14 @@
 		this._ws.send(pck.cl.declineInvite + ':');
 	};
 
+	window.Connection.prototype.sendRsaParams = function (data) {
+		this._ws.send(pck.cl.rsaParams + ':' + data);
+	};
+
+	window.Connection.prototype.sendSessionKey = function (data) {
+		this._ws.send(pck.cl.sessionKey + ':' + data);
+	};
+
 	window.Connection.prototype.sendMessage = function (text) {
 		this._ws.send(pck.cl.message + ':' + text);
 	};
@@ -130,6 +146,14 @@
 
 	window.Connection.prototype.onChatRequest = function (func) {
 		setupHandler(this, pck.srv.otherUserChatInvite, func, true);
+	};
+
+	window.Connection.prototype.onRsaParams = function (func) {
+		setupHandler(this, pck.srv.rsaParams, func, true);
+	};
+
+	window.Connection.prototype.onSessionKey = function (func) {
+		setupHandler(this, pck.srv.sessionKey, func, true);
 	};
 
 	window.Connection.prototype.onSessionInit = function (func) {

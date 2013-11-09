@@ -3,8 +3,9 @@ $(function () {
 	var connection;
 	var timer;
 	var nick, partnerNick;
-
-	window.secretKey = [201, 120, 8, 17, 30, 41, 109, 93, 196, 252, 55, 250, 36, 16, 101, 144];
+	var rsaParams;
+	var aesKey;
+	var hmacKey;
 
 	var messageTemplate = $('#messages-div > div:first').clone();
 
@@ -66,6 +67,38 @@ $(function () {
 				bar.css('width', Math.round(400 * time / maxTime) + 'px');
 			};
 			timer = setInterval(timerFunction, 100);
+		});
+
+		connection.onRsaParams(function (data) {
+			var parts = data.split(':');
+			rsaParams = new RSAParameters();
+			rsaParams.keyLength = parseInt(parts[0]);
+			rsaParams.messageLength = parseInt(parts[1]);
+			rsaParams.publicKey = {
+				n: BigInt.parse(parts[2], 16),
+				e: BigInt.parse(parts[3], 16)
+			};
+
+			if (rsaParams.keyLength != 1024)
+				throw 'Invalid RSA key length';
+			if (rsaParams.messageLength != 32)
+				throw 'Invalid message length';
+
+			aesKey = random.SHA2PRNG.getUint8Array(16);
+			hmacKey = random.SHA2PRNG.getUint8Array(16);
+			var message = new Uint8Array(32);
+			message.set(aesKey, 0);
+			message.set(hmacKey, 16);
+
+			var data = rsa.encode(message, rsaParams);
+			rsaParams = null;
+			connection.sendSessionKey(bh.byteArrayToHex(data));
+		});
+
+		connection.onSessionKey(function (data) {
+			var message = rsa.decode(bh.hexToByteArray(data), rsaParams);
+			aesKey = message.subarray(0, 16);
+			hmacKey = message.subarray(16, 32);
 		});
 
 		connection.onSessionInit(function (_partnerNick) {
@@ -160,6 +193,13 @@ $(function () {
 
 				$('#choose-partner-request-div').hide();
 				$('#session-init-div').show();
+
+				rsaParams = rsa.generateParameters(1024, 32);
+				connection.sendRsaParams(
+					rsaParams.keyLength + ':' +
+					rsaParams.messageLength + ':' +
+					rsaParams.publicKey.n.toString(16) + ':' +
+					rsaParams.publicKey.e.toString(16));
 			}, function (msg) {
 				gotResponse = true;
 
@@ -205,24 +245,14 @@ $(function () {
 	});
 
 	var encrypt = function (text) {
-		var bytes = bh.stringToByteArray(text + '.');
-		bh.paddings.zero.pad(bytes, 16);
-		var encBytes = [];
-		while (bytes.length != 0) {
-			var block = bytes.splice(0, 16);
-			encBytes = encBytes.concat(aes.encrypt(block, window.secretKey));
-		}
+		var bytes = bh.stringToByteArray(text);
+		var encBytes = aes.encrypt(bytes, aesKey, paddings.PKCS7);
 		return bh.byteArrayToHex(encBytes);
 	};
 
 	var decrypt = function (text) {
 		var bytes = bh.hexToByteArray(text);
-		var decBytes = [];
-		while (bytes.length != 0) {
-			var block = bytes.splice(0, 16);
-			decBytes = decBytes.concat(aes.decrypt(block, window.secretKey));
-		}
-		bh.paddings.zero.unpad(decBytes);
+		var decBytes = aes.decrypt(bytes, aesKey, paddings.PKCS7);
 		return bh.byteArrayToString(decBytes);
 	};
 
