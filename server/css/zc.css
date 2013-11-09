@@ -1,0 +1,34 @@
+.blink-message {
+	animation-duration: 0.8s;
+	animation-name: shadow-blink;	
+	animation-iteration-count: infinite;
+	animation-timing-function: easy-out;	
+	-webkit-animation-name: shadow-blink;
+	-webkit-animation-duration: 0.8s;
+	-webkit-animation-timing-function: easy-out;
+	-webkit-animation-iteration-count: infinite;
+}
+
+@-webkit-keyframes shadow-blink {
+	from {
+		box-shadow: 0 0 10px #2B67FF;
+	}
+	50% {
+		box-shadow: 0 0 1px #2B67FF;	
+	}
+	to {
+		box-shadow: 0 0 10px #2B67FF;
+	}
+}
+
+@keyframes shadow-blink {
+	from {
+		box-shadow: 0 0 10px #2B67FF;
+	}
+	50% {
+		box-shadow: 0 0 1px #2B67FF;	
+	}
+	to {
+		box-shadow: 0 0 10px #2B67FF;
+	}
+}

@@ -5,12 +5,14 @@
 	<title>zChat</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<link href="css/bootstrap.css" rel="stylesheet" />
+	<link href="css/zc.css" rel="stylesheet" />
 	<script src="js/jquery-2.0.3.js"></script>
 	<script src="js/bootstrap.js"></script>
 	<script src="js/sockets.js"></script>
 	<script src="js/zc.js"></script>
 	<!-- libraries for crypto -->
 	<script src="js/bithelper.js"></script>
+	<script src="js/encodings.js"></script>
 	<script src="js/sha2.js"></script>
 	<script src="js/random.js"></script>
 	<script src="js/paddings.js"></script>
@@ -82,7 +84,7 @@
 
 		<div id="chat-div" class="well" style="width: 600px; margin: 0 auto; text-align: left; box-shadow: 2px 2px 2px #555555; display: none;">
 			<div id="messages-div" style="margin-bottom: 5px; overflow-y: auto; height: 100px;">
-				<div class="panel panel-primary" style="margin-bottom: 5px;">
+				<div class="panel panel-primary" style="margin-bottom: 5px; margin-left: 5px; margin-right: 5px;">
 					<div class="panel-heading" style="padding: 4px 15px 3px 15px;">
 						<div style="float: left;"><h3 class="panel-title" style="font-size: 15px;">Welcome!</h3></div>
 						<div style="float: right;"><h3 class="panel-title" style="font-size: 15px;"></h3></div>
