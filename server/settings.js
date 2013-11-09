@@ -1,5 +1,5 @@
 module.exports = {
-	host: 'localhost',
-	httpPort: 88,
+	host: 'chat.zergatul.com',
+	httpPort: 80,
 	wsPort: 81
 };
