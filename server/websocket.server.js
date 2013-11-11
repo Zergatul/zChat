@@ -16,7 +16,7 @@ module.exports.start = function () {
 	wsServer.on('error', function (error) {
 		console.log('WebSocket error');
 	});
-	console.log('WebSocket server started.');
+	console.log('WebSocket server started');
 };
 
 var pck = { srv: {}, cl: {} };
