@@ -1,2 +1,3 @@
 timer for returning users back no initial state, if user did not response to chat invite
 close event for socket on server and client
+change websocket mode to arraybuffer

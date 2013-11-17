@@ -3,6 +3,7 @@ $(function () {
 	var manager = {};
 	var helper = {};
 	var conHandlers = {};
+	var fileSender = {};
 
 	manager.pageInit = function () {
 		manager.messageTemplate = $('#messages-div > div:first').clone();
@@ -24,6 +25,10 @@ $(function () {
 		$('#disconnect-link').click(manager.onDisconnectClick);
 		$('#terminate-session-link').click(manager.onTerminateSessionClick);
 		$(document).on('keypress', manager.onKeyPress);
+		$(document).on('click', manager.onKeyPress);
+
+		// ?
+		manager.setupFilesDragAndDrop();
 
 		// setup clearing blink messages
 		manager.keyPressed = false;
@@ -55,6 +60,11 @@ $(function () {
 		manager.connection.onSessionInit(conHandlers.onSessionInit);
 		manager.connection.onMessage(conHandlers.onMessage);
 		manager.connection.onPartnerDisconnect(conHandlers.onPartnerDisconnect);
+		manager.connection.onFileInfo(conHandlers.onFileInfo);
+		manager.connection.onBeginDownload(conHandlers.onBeginDownload);
+		manager.connection.onRequestFileData(conHandlers.onRequestFileData);
+		manager.connection.onFileData(conHandlers.onFileData);
+		manager.connection.onEndDownload(conHandlers.onEndDownload);
 	};
 
 	manager.onRandomBtnClick = function () {
@@ -99,6 +109,7 @@ $(function () {
 	manager.onWindowResize = function () {
 		if ($('#chat-div').is(':visible'))
 			manager.setChatDivHeight();
+		manager.setDragDiv();
 	};
 
 	manager.onClearAllClick = function () {
@@ -123,6 +134,7 @@ $(function () {
 		manager.keyPressed = true;
 	};
 
+	// TODO: refactor
 	manager.addMessage = function (cssClass, title, body, blinked) {
 		var msgDiv = manager.messageTemplate.clone();
 		msgDiv.removeClass('panel-primary');
@@ -142,6 +154,47 @@ $(function () {
 			$('#messages-div').finish();
 			$('#messages-div').animate({ scrollTop: $('#messages-div')[0].scrollHeight }, 400);
 		}
+	};
+
+	// TODO: refactor
+	manager.addFileMessage = function (cssClass, title, fileName, size, blinked) {
+		var msgDiv = manager.messageTemplate.clone();
+		msgDiv.removeClass('panel-primary');
+		msgDiv.addClass(cssClass);
+		msgDiv.find('.panel-title:first').text(title);
+		msgDiv.find('.panel-title:last').text(helper.currentDate());
+		msgDiv.find('.panel-body').empty();
+		msgDiv.find('.panel-body').html((blinked ? 'Incoming file' : 'Outcoming file') + ': ' + fileName + ' (' + size + ' bytes)');
+		msgDiv.find('.panel-body').append($('<br>'));
+		if (blinked) {
+			msgDiv.find('.panel-body').append($('<button>')
+				.addClass('btn btn-primary')
+				.attr('type', 'button')
+				.text('Download')
+				.click(function () {
+					var panel = $(this).closest('div.panel');
+					var fileuid = panel.attr('data-fileuid');
+					var bar = helper.createProgressBar();
+					bar.css('width', '100%');
+					bar.css('margin-bottom', '5px');
+					$(this).replaceWith(bar);
+					fileSender.download(fileuid);
+				}));
+		}
+		msgDiv.appendTo($('#messages-div'));
+		msgDiv.data('date', new Date());
+		if (blinked) {
+			msgDiv.addClass('blink-message');
+			manager.blinkMessages.push(msgDiv);
+		}
+
+		// if contains scroll bar
+		if ($('#messages-div')[0].scrollHeight > $('#messages-div').height()) {
+			$('#messages-div').finish();
+			$('#messages-div').animate({ scrollTop: $('#messages-div')[0].scrollHeight }, 400);
+		}
+
+		return msgDiv;
 	};
 
 	manager.sendMessage = function () {
@@ -204,6 +257,64 @@ $(function () {
 	manager.setChatDivHeight = function () {
 		//
 		$('#messages-div').css('height', ($(window).height() - 150) + 'px');
+	};
+
+	manager.setDragDiv = function () {
+		$('#drag-div').outerWidth($(window).width() - 10);
+		$('#drag-div').outerHeight($(window).height() - 10);
+		$('#drag-over-div').outerWidth($(window).width());
+		$('#drag-over-div').outerHeight($(window).height());
+	};
+
+	// TODO: refactor
+	manager.setupFilesDragAndDrop = function () {
+		manager.setDragDiv();
+
+		document.ondragover = function (event) {
+			var correctType = false;
+			for (var i = 0; i < event.dataTransfer.types.length; i++)
+				if (event.dataTransfer.types[i] == 'Files') {
+					correctType = true;
+					break;
+				}
+			if (!correctType)
+				return;
+
+			event.preventDefault();
+
+			if (!$('#drag-div').is(':visible'))
+				$('#drag-div, #drag-over-div').show();
+
+			return false;
+		};
+
+		document.ondragleave = function (event) {
+			if (event.toElement != document.querySelector('#drag-over-div'))
+				return false;
+
+			$('#drag-div, #drag-over-div').hide();
+
+			return false;
+		};
+
+		document.ondrop = function (event) {
+			$('#drag-div, #drag-over-div').hide();
+			if (event.dataTransfer.files.length == 0) {
+				event.preventDefault();
+				return;
+			}
+
+			var file = event.dataTransfer.files[0];
+			var reader = new FileReader();
+			reader.onload = function (event) {
+				var buffer = event.target.result;
+				var data = new Uint8Array(buffer);
+				fileSender.send(file.name, data);
+			};
+			reader.readAsArrayBuffer(file);
+			
+			event.preventDefault();
+		};
 	};
 
 	//*******************************************
@@ -363,7 +474,50 @@ $(function () {
 		manager.modalDialog('Error while sending chat invitation', msg);
 		$('#choose-partner-request-div').hide();
 		$('#choose-partner-div').show();
-	}
+	};
+
+	conHandlers.onFileInfo = function (data) {
+		var parts = data.split(':');
+		var fileuid = parts[0];
+		var fileName = parts[1];
+		var size = parseInt(parts[2]);
+		var div = manager.addFileMessage('panel-warning', manager.partnerNick, fileName, size, true);
+		div.attr('data-fileuid', fileuid);
+		fileSender.inFiles[fileuid] = { name: fileName, size: size };
+	};
+
+	conHandlers.onBeginDownload = function (fileuid) {
+		var panel = $('div.panel[data-fileuid=' + fileuid + ']');
+		if (panel.length) {
+			var bar = helper.createProgressBar();
+			bar.css('style', '100%');
+			bar.css('margin-bottom', '5px');
+			panel.find('.panel-body').append(bar);
+		}
+	};
+
+	conHandlers.onRequestFileData = function (data) {
+		var parts = data.split(':');
+		var fileuid = parts[0];
+		var from = parseInt(parts[1]);
+		var len = parseInt(parts[2]);
+		fileSender.processRequestFileData(fileuid, from, len);
+	};
+
+	conHandlers.onFileData = function (data) {
+		var parts = data.split(':');
+		var fileuid = parts[0];
+		var from = parseInt(parts[1]);
+		var len = parseInt(parts[2]);
+		var data = new Uint8Array(bh.hexToByteArray(parts[3]));
+		fileSender.processFileData(fileuid, from, len, data);
+	};
+
+	conHandlers.onEndDownload = function (fileuid) {
+		var panel = $('div.panel[data-fileuid=' + fileuid + ']');
+		if (panel.length)
+			panel.find('.progress').replaceWith('Uploaded');
+	};
 
 	//*******************************************
 
@@ -398,6 +552,82 @@ $(function () {
 		ico.rel = 'icon';
 		ico.href = url;
 		return ico;
+	};
+
+	helper.createProgressBar = function () {
+		var div = $('<div>')
+			.addClass('progress progress-striped active')
+			.append($('<div>')
+				.addClass('progress-bar')
+				.attr('attr', 'progressbar')
+				.attr('aria-valuenow', 0)
+				.attr('aria-valuemin', 0)
+				.attr('aria-valuemax', 100)
+				.css('width', '0%'));
+		return div;
+	};
+
+	//*******************************************
+
+	fileSender.outFiles = {};
+	fileSender.inFiles = {};
+
+	fileSender.partSize = 1024;
+
+	fileSender.send = function (name, data) {
+		var fileuid = bh.byteArrayToHex(random.SHA2PRNG.getUint8Array(32));
+		manager.connection.sendFileInfo(fileuid, name, data.length);
+		var div = manager.addFileMessage('panel-success', manager.nick, name, data.length);
+		div.attr('data-fileuid', fileuid);
+		fileSender.outFiles[fileuid] = { name: name, size: data.length, data: data };
+	};
+
+	fileSender.download = function (fileuid) {
+		manager.connection.sendBeginDownload(fileuid);
+		var size = fileSender.inFiles[fileuid].size;
+		var len = Math.min(fileSender.partSize, size);
+		fileSender.inFiles[fileuid].data = new Uint8Array(size);
+		manager.connection.sendRequestFileData(fileuid, 0, len);
+	};
+
+	fileSender.processRequestFileData = function (fileuid, from, len) {
+		var file = fileSender.outFiles[fileuid];
+		var data = file.data.subarray(from, from + len);
+		manager.connection.sendFileData(fileuid, from, len, data);
+
+		var panel = $('div.panel[data-fileuid=' + fileuid + ']');
+		if (panel.length) {
+			panel.find('.progress-bar').css('width', Math.round(100 * (from + len) / file.size) + '%');
+		}
+	};
+
+	fileSender.processFileData = function (fileuid, from, len, data) {
+		var file = fileSender.inFiles[fileuid];
+		file.data.set(data, from);
+
+		if (from + len < file.size) {
+			var newLen = Math.min(fileSender.partSize, file.size - (from + len));
+			manager.connection.sendRequestFileData(fileuid, from + len, newLen);
+		} else
+			manager.connection.sendEndDownload(fileuid);
+
+		var panel = $('div.panel[data-fileuid=' + fileuid + ']');
+		if (panel.length) {
+			panel.find('.progress-bar').css('width', Math.round(100 * (from + len) / file.size) + '%');
+			if (from + len == file.size)
+				panel.find('.progress')
+					.replaceWith($('<button>')
+						.addClass('btn btn-primary')
+						.attr('type', 'button')
+						.text('Save...')
+						.click(function () {
+							var panel = $(this).closest('div.panel');
+							var fileuid = panel.attr('data-fileuid');
+							var file = fileSender.inFiles[fileuid];
+							var blob = new Blob([file.data], { type: 'application/octet-binary' });
+							saveAs(blob, file.name);
+						}));
+		}
 	};
 
 	//*******************************************

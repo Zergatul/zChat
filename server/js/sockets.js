@@ -8,6 +8,11 @@
 	pck.cl.rsaParams = 5;
 	pck.cl.sessionKey = 6;
 	pck.cl.message = 7;
+	pck.cl.fileInfo = 8;
+	pck.cl.beginDownload = 9;
+	pck.cl.requestFileData = 10;
+	pck.cl.fileData = 11;
+	pck.cl.endDownload = 12;
 	pck.srv.nickResponse = 1;
 	pck.srv.otherUserChatInvite = 2;
 	pck.srv.chatInviteResponse = 3;
@@ -17,6 +22,11 @@
 	pck.srv.sessionInit = 7;
 	pck.srv.message = 8;
 	pck.srv.partnerDisconnect = 9;
+	pck.srv.fileInfo = 10;
+	pck.srv.beginDownload = 11;
+	pck.srv.requestFileData = 12;
+	pck.srv.fileData = 13;
+	pck.srv.endDownload = 14;
 
 	var okMessage = 'ok';
 
@@ -132,6 +142,26 @@
 		this._ws.send(pck.cl.message + ':' + text);
 	};
 
+	window.Connection.prototype.sendFileInfo = function (fileuid, name, size) {
+		this._ws.send(pck.cl.fileInfo + ':' + fileuid + ':' + name + ':' + size);
+	};
+
+	window.Connection.prototype.sendBeginDownload = function (fileuid) {
+		this._ws.send(pck.cl.beginDownload + ':' + fileuid);
+	};
+
+	window.Connection.prototype.sendRequestFileData = function (fileuid, from, len) {
+		this._ws.send(pck.cl.requestFileData + ':' + fileuid + ':' + from + ':' + len);
+	};
+
+	window.Connection.prototype.sendFileData = function (fileuid, from, len, data) {
+		this._ws.send(pck.cl.fileData + ':' + fileuid + ':' + from + ':' + len + ':' + bh.byteArrayToHex(data));
+	};
+
+	window.Connection.prototype.sendEndDownload = function (fileuid) {
+		this._ws.send(pck.cl.endDownload + ':' + fileuid);
+	};
+
 	window.Connection.prototype.onConnect = function (func) {
 		this._onConnect = func;
 	};
@@ -162,6 +192,26 @@
 
 	window.Connection.prototype.onMessage = function (func) {
 		setupHandler(this, pck.srv.message, func, true);
+	};
+
+	window.Connection.prototype.onFileInfo = function (func) {
+		setupHandler(this, pck.srv.fileInfo, func, true);
+	};
+
+	window.Connection.prototype.onBeginDownload = function (func) {
+		setupHandler(this, pck.srv.beginDownload, func, true);
+	};
+
+	window.Connection.prototype.onRequestFileData = function (func) {
+		setupHandler(this, pck.srv.requestFileData, func, true);
+	};
+
+	window.Connection.prototype.onFileData = function (func) {
+		setupHandler(this, pck.srv.fileData, func, true);
+	};
+
+	window.Connection.prototype.onEndDownload = function (func) {
+		setupHandler(this, pck.srv.endDownload, func, true);
 	};
 
 	window.Connection.prototype.onPartnerDisconnect = function (func) {

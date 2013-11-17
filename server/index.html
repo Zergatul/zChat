@@ -8,6 +8,7 @@
 	<link href="css/zc.css" rel="stylesheet" />
 	<script src="js/jquery-2.0.3.js"></script>
 	<script src="js/bootstrap.js"></script>
+	<script src="js/FileSaver.js"></script>
 	<script src="js/sockets.js"></script>
 	<script src="js/zc.js"></script>
 	<!-- libraries for crypto -->
@@ -23,7 +24,8 @@
 </head>
 <body>
 	<div class="text-center">
-		<h2 style="color: #095517; text-shadow: 3px 3px 2px #aaaaaa, 0 0 10px #aaaaff;">zChat</h2>
+
+		<h2 style="color: #095517; text-shadow: 0 0 1px #aaaaff;">zChat</h2>
 
 		<div id="connect-div" class="input-group" style="width: 400px; margin: 0 auto;">
 			<input type="text" class="form-control" placeholder="Your nick" id="nick-input" />
@@ -132,6 +134,12 @@
 			</div>
 		</div>
 	</div>
+
+	<div id="drag-div" style="z-index: 10; position: absolute; top: 0px; left: 0px; background-color: rgba(220, 220, 200, 0.5); border: 10px dotted #0033FF; border-radius: 50px; margin: 5px; text-align: center; vertical-align: middle; font-size: 50px; display: none;">
+		<div style="float: left; height: 50%; width: 100%; margin-bottom: -36px;"></div>
+		<div style="clear: both; height: 72px; color: #0033FF; font-weight: bold;">Drag files here</div>
+	</div>
+	<div id="drag-over-div" style="z-index: 20; position: absolute; top: 0px; left: 0px; display: none;"></div>
 
 </body>
 </html>
