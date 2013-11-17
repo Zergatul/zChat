@@ -16,7 +16,7 @@ module.exports.start = function () {
 	wsServer.on('error', function (error) {
 		console.log('WebSocket error');
 	});
-	console.log('WebSocket server started.');
+	console.log('WebSocket server started');
 };
 
 var pck = { srv: {}, cl: {} };
@@ -27,6 +27,11 @@ pck.cl.declineInvite = 4;
 pck.cl.rsaParams = 5;
 pck.cl.sessionKey = 6;
 pck.cl.message = 7;
+pck.cl.fileInfo = 8;
+pck.cl.beginDownload = 9;
+pck.cl.requestFileData = 10;
+pck.cl.fileData = 11;
+pck.cl.endDownload = 12;
 pck.srv.nickResponse = 1;
 pck.srv.otherUserChatInvite = 2;
 pck.srv.chatInviteResponse = 3;
@@ -36,6 +41,11 @@ pck.srv.sessionKey = 6;
 pck.srv.sessionInit = 7;
 pck.srv.message = 8;
 pck.srv.partnerDisconnect = 9;
+pck.srv.fileInfo = 10;
+pck.srv.beginDownload = 11;
+pck.srv.requestFileData = 12;
+pck.srv.fileData = 13;
+pck.srv.endDownload = 14;
 
 var state = {
 	INITIAL: 1,
@@ -87,6 +97,26 @@ var onMessage = function (socket, message) {
 	}
 	if (id == pck.cl.message) {
 		onMessagePacket(socket, data);
+		return;
+	}
+	if (id == pck.cl.fileInfo) {
+		onFileInfo(socket, data);
+		return;
+	}
+	if (id == pck.cl.beginDownload) {
+		onBeginDownload(socket, data);
+		return;
+	}
+	if (id == pck.cl.requestFileData) {
+		onRequestFileData(socket, data);
+		return;
+	}
+	if (id == pck.cl.fileData) {
+		onFileData(socket, data);
+		return;
+	}
+	if (id == pck.cl.endDownload) {
+		onEndDownload(socket, data);
 		return;
 	}
 };
@@ -269,4 +299,39 @@ var onMessagePacket = function (socket, message) {
 	var partner = users[user.partner];
 
 	partner.socket.send(pck.srv.message + ':' + message);
+};
+
+var onFileInfo = function (socket, message) {
+	var user = users[socket._nick];
+	var partner = users[user.partner];
+
+	partner.socket.send(pck.srv.fileInfo + ':' + message);
+};
+
+var onBeginDownload = function (socket, message) {
+	var user = users[socket._nick];
+	var partner = users[user.partner];
+
+	partner.socket.send(pck.srv.beginDownload + ':' + message);
+};
+
+var onRequestFileData = function (socket, message) {
+	var user = users[socket._nick];
+	var partner = users[user.partner];
+
+	partner.socket.send(pck.srv.requestFileData + ':' + message);
+};
+
+var onFileData = function (socket, message) {
+	var user = users[socket._nick];
+	var partner = users[user.partner];
+
+	partner.socket.send(pck.srv.fileData + ':' + message);
+};
+
+var onEndDownload = function (socket, message) {
+	var user = users[socket._nick];
+	var partner = users[user.partner];
+
+	partner.socket.send(pck.srv.endDownload + ':' + message);
 };

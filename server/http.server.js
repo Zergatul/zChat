@@ -1,4 +1,5 @@
 var http = require('http');
+var https = require('https');
 var fs = require('fs');
 var settings = require('./settings');
 
@@ -43,9 +44,7 @@ var show404 = function (response) {
 	response.end();
 };
 
-var httpServer = http.createServer(function (request, response) {
-	console.log(request.url);
-
+var requestListener = function (request, response) {
 	if (request.method != 'GET') {
 		show404(response);
 		return;
@@ -63,9 +62,23 @@ var httpServer = http.createServer(function (request, response) {
 	});
 	response.write(file.content);
 	response.end();
-});
-
-module.exports.start = function () {
-	httpServer.listen(settings.httpPort);
-	console.log('HTTP server started.');
 };
+
+if (settings.useHttps) {
+	var httpsServer = https.createServer({
+		key: fs.readFileSync('keys/chat.zergatul.com.key'),
+		cert: fs.readFileSync('keys/chat.zergatul.com.crt')
+	}, requestListener);
+
+	module.exports.start = function () {
+		httpsServer.listen(settings.httpsPort);
+		console.log('HTTPS server started');
+	};
+} else {
+	var httpServer = http.createServer(requestListener);
+
+	module.exports.start = function () {
+		httpServer.listen(settings.httpPort);
+		console.log('HTTP server started');
+	};
+}
