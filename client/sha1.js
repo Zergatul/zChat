@@ -2,8 +2,16 @@
 
 	if (bh == undefined)
 		throw 'bithelper.js not loaded';
+	if (HashAlgorithm == undefined)
+		throw 'hash.algorithm.js not loaded';
 
-	window.sha1 = function (bytes) {
+	window.SHA1 = function () {};
+	window.SHA1.prototype = new HashAlgorithm();
+	window.SHA1.prototype.hashSize = 160;
+
+	window.hashAlgorithms.sha1 = new SHA1();
+
+	window.SHA1.prototype.computeHash = function (bytes) {
 
 		if (bytes instanceof Array)
 			bytes = new Uint8Array(bytes);

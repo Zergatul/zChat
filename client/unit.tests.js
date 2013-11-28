@@ -42,7 +42,7 @@
 
 	window._md2Test = function () {
 		var test = function (bytes, hex) {
-			return bh.byteArrayToHex(md2(bytes)) == hex;
+			return bh.byteArrayToHex(hashAlgorithms.md2.computeHash(bytes)) == hex;
 		};
 
 		var result = true;
@@ -55,7 +55,7 @@
 
 	window._md4Test = function () {
 		var test = function (bytes, hex) {
-			return bh.byteArrayToHex(md4(bytes)) == hex;
+			return bh.byteArrayToHex(hashAlgorithms.md4.computeHash(bytes)) == hex;
 		};
 
 		var result = true;
@@ -68,7 +68,7 @@
 
 	window._md5Test = function () {
 		var test = function (bytes, hex) {
-			return bh.byteArrayToHex(md5(bytes)) == hex;
+			return bh.byteArrayToHex(hashAlgorithms.md5.computeHash(bytes)) == hex;
 		};
 
 		var result = true;
@@ -81,7 +81,7 @@
 
 	window._sha1Test = function () {
 		var test = function (bytes, hex) {
-			return bh.byteArrayToHex(sha1(bytes)) == hex;
+			return bh.byteArrayToHex(hashAlgorithms.sha1.computeHash(bytes)) == hex;
 		};
 
 		var result = true;
@@ -94,7 +94,14 @@
 
 	window._sha2Test = function () {
 		var test = function (bytes, ver, hex) {
-			return bh.byteArrayToHex(sha2(bytes, ver)) == hex;
+			if (ver == 224)
+				return bh.byteArrayToHex(hashAlgorithms.sha224.computeHash(bytes)) == hex;
+			if (ver == 256)
+				return bh.byteArrayToHex(hashAlgorithms.sha256.computeHash(bytes)) == hex;
+			if (ver == 384)
+				return bh.byteArrayToHex(hashAlgorithms.sha384.computeHash(bytes)) == hex;
+			if (ver == 512)
+				return bh.byteArrayToHex(hashAlgorithms.sha512.computeHash(bytes)) == hex;
 		};
 
 		console.log('SHA-224');
@@ -125,5 +132,27 @@
 		result &= test([97, 98, 99], 512, 'ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f');
 		test(a40, 512, 'a8e64de4f5fa72e7a1a1bee705d87acc50748a810482a088535e53ad741ed68fb0c7cb08035802f63d466ba629b13823705db763f5ec043918f20c2266c0a783');
 		console.log(result ? 'Passed' : 'Failed');
+	};
+
+	window._ripemd160Test = function () {
+		var test = function (bytes, hex) {
+			return bh.byteArrayToHex(hashAlgorithms.ripemd160.computeHash(bytes)) == hex;
+		};
+
+		var result = true;
+		result &= test([], '9c1185a5c5e9fc54612808977ee8f548b2258d31');
+		result &= test([255], '2c0c45d3ecab80fe060e5f1d7057cd2f8de5e557');
+		result &= test(a40, '7b78ec9d05702f000dbb1d88c2c941795b4f62bd');
+
+		console.log(result ? 'Passed' : 'Failed');
+	};
+
+	window._hashAlgoTest = function () {
+		console.log('md2'); _md2Test();
+		console.log('md4'); _md4Test();
+		console.log('md5'); _md5Test();
+		console.log('sha1'); _sha1Test();
+		_sha2Test();
+		console.log('ripemd160'); _ripemd160Test();
 	};
 })();

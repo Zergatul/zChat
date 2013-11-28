@@ -3,3 +3,6 @@ bitLength(): use binary search with constants in code
 rewrite all bigint private method to use arrays as parameters
 
 passesLucasLehmer
+
+refactor all hash functions (remove call rotate functions)
+ripemd - refactor
