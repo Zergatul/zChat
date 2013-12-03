@@ -5,11 +5,9 @@
 	if (HashAlgorithm == undefined)
 		throw 'hash.algorithm.js not loaded';
 
-	window.MD4 = function () {};
-	window.MD4.prototype = new HashAlgorithm();
-	window.MD4.prototype.hashSize = 128;
-
-	window.hashAlgorithms.md4 = new MD4();
+	window.HashAlgorithm.MD4 = function () {};
+	window.HashAlgorithm.MD4.prototype = new HashAlgorithm();
+	window.HashAlgorithm.MD4.prototype.hashSize = 128;
 
 	//
 	// round 1 left rotates
@@ -46,7 +44,7 @@
 		return u ^ v ^ w;
 	};
 
-	window.MD4.prototype.computeHash = function (bytes) {
+	window.HashAlgorithm.MD4.prototype.computeHash = function (bytes) {
 
 		if (bytes instanceof Array)
 			bytes = new Uint8Array(bytes);

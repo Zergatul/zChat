@@ -1,9 +1,12 @@
 (function () {
 
-	if (window.SHA256 == undefined)
+	if (window.HashAlgorithm == undefined)
+		throw 'hash.algorithm.js not loaded';
+	if (window.HashAlgorithm.SHA256 == undefined)
 		throw 'sha2.js not loaded';
 
-	var sha2 = function (bytes) { return hashAlgorithms.sha256.computeHash(bytes); };
+	var hashAlgo = new window.HashAlgorithm.SHA256();
+	var sha2 = function (bytes) { return hashAlgo.computeHash(bytes); };
 
 	window.OAEP = function (n, m, k0) {
 		this._n = n;

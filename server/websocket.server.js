@@ -59,17 +59,16 @@ var state = {
 	CHATTING_SECONDARY: 11
 };
 
-var okMessage = 'ok';
+var okMessage = 127;
 
 var users = {};
 
 var onMessage = function (socket, message) {
-	console.log('received: %s', message);
+	if (settings.packetLogging)
+		console.log('received: %s', message);
 
-	var delimiterIndex = message.indexOf(':');
-	var id = message.substring(0, delimiterIndex);
-	id = parseInt(id);
-	var data = message.substring(delimiterIndex + 1);
+	var id = message[0];
+	var data = message.slice(1);
 
 	if (id == pck.cl.nick) {
 		onNickPacket(socket, data);
@@ -121,6 +120,14 @@ var onMessage = function (socket, message) {
 	}
 };
 
+var makeBuffer = function (id, str) {
+	var msg = new Buffer(str);
+	var buf = new Buffer(msg.length + 1);
+	buf[0] = id;
+	msg.copy(buf, 1);
+	return buf;
+};
+
 var onClose = function (socket) {
 	var user = users[socket._nick];
 	if (user == undefined)
@@ -145,9 +152,9 @@ var onNickPacket = function (socket, nick) {
 	if (users[nick] == undefined) {
 		socket._nick = nick;
 		users[nick] = { state: state.INITIAL, socket: socket, nick: nick };
-		socket.send(pck.srv.nickResponse + ':' + okMessage);
+		socket.send(new Buffer([pck.srv.nickResponse, okMessage]));
 	} else {
-		socket.send(pck.srv.nickResponse + ':Nick is already used by another user.');
+		socket.send(makeBuffer(pck.srv.nickResponse, 'Nick is already used by another user'));
 	}
 };
 
@@ -166,28 +173,28 @@ var onChatInvite = function (socket, partnerNick) {
 		return;
 	}
 	if (nick == partnerNick) {
-		socket.send(pck.srv.chatInviteResponse + ':You cannot chat with self.');
+		socket.send(makeBuffer(pck.srv.chatInviteResponse, 'You cannot chat with self'));
 		return;
 	}
 	if (users[partnerNick] == undefined) {
-		socket.send(pck.srv.chatInviteResponse + ':User is not online now.');
+		socket.send(makeBuffer(pck.srv.chatInviteResponse, 'User is not online now'));
 		return;
 	}
 	var partner = users[partnerNick];
 	if (partner.state == state.WAIT_FOR_INVITE_RESPONSE) {
-		socket.send(pck.srv.chatInviteResponse + ':This user is inviting another user now.');
+		socket.send(makeBuffer(pck.srv.chatInviteResponse, 'This user is inviting another user now'));
 		return;
 	}
 	if (partner.state == state.INVITING_PROCESS) {
-		socket.send(pck.srv.chatInviteResponse + ':Someone else is inviting this user for chatting.');
+		socket.send(makeBuffer(pck.srv.chatInviteResponse, 'Someone else is inviting this user for chatting'));
 		return;
 	}
 	if (partner.state == state.CHATTING_PRIMARY || partner.state == state.CHATTING_SECONDARY) {
-		socket.send(pck.srv.chatInviteResponse + ':This user is already chatting with someone.');
+		socket.send(makeBuffer(pck.srv.chatInviteResponse, 'This user is already chatting with someone'));
 		return;
 	}
-	socket.send(pck.srv.chatInviteResponse + ':' + okMessage);
-	partner.socket.send(pck.srv.otherUserChatInvite + ':' + nick);
+	socket.send(new Buffer([pck.srv.chatInviteResponse, okMessage]));
+	partner.socket.send(makeBuffer(pck.srv.otherUserChatInvite, nick));
 
 	users[nick].state = state.WAIT_FOR_INVITE_RESPONSE;
 	users[nick].inviting = partnerNick;

@@ -28,7 +28,7 @@
 	pck.srv.fileData = 13;
 	pck.srv.endDownload = 14;
 
-	var okMessage = 'ok';
+	var okMessage = 127;
 
 	window.Connection = function () {
 		var self = this;
@@ -36,6 +36,7 @@
 		this._handlers = {};
 
 		this._ws = new WebSocket(webSocketAddr);
+		this._ws.binaryType = 'arraybuffer';
 
 		this._ws.onopen = function () {
 			if (typeof self._onConnect == 'function') {
@@ -52,10 +53,9 @@
 		};
 
 		this._ws.onmessage = function (event) {
-			var delimiterIndex = event.data.indexOf(':');
-			var id = event.data.substring(0, delimiterIndex);
-			id = parseInt(id);
-			var data = event.data.substring(delimiterIndex + 1);
+			var message = new Uint8Array(event.data);
+			var id = message[0];
+			var data = message.subarray(1);
 			resolveSrvPacket(self, id, data);
 		};
 
@@ -96,7 +96,7 @@
 			if (handlers.onMessage != undefined)
 				handlers.onMessage(data);
 			else
-				if (data == okMessage)
+				if (data.length == 1 && data[0] == okMessage)
 					handlers.onSuccess();
 				else
 					handlers.onFail(data);
@@ -108,13 +108,21 @@
 		this._ws.close();
 	};
 
+	var makeBuffer = function (id, str) {
+		var bytes = encodings.UTF8.getBytes(str);
+		var buf = new Uint8Array(bytes.length + 1)
+		buf.set(bytes, 1);
+		buf[0] = id;
+		return buf.buffer;
+	};
+
 	window.Connection.prototype.sendNick = function (nick, onSuccess, onFail) {
-		this._ws.send(pck.cl.nick + ':' + nick);
+		this._ws.send(makeBuffer(pck.cl.nick, nick));
 		setupHandlers(this, pck.srv.nickResponse, onSuccess, onFail);
 	};
 
 	window.Connection.prototype.inviteForChatting = function (partnerNick, onSuccess, onFail) {
-		this._ws.send(pck.cl.chatInvite + ':' + partnerNick);
+		this._ws.send(makeBuffer(pck.cl.chatInvite, partnerNick));
 		setupHandlers(this, pck.srv.chatInviteResponse, onSuccess, onFail);
 	};
 
@@ -123,11 +131,11 @@
 	};
 
 	window.Connection.prototype.acceptInvite = function () {
-		this._ws.send(pck.cl.acceptInvite + ':');
+		this._ws.send(new Uint8Array([pck.cl.acceptInvite]).buffer);
 	};
 
 	window.Connection.prototype.declineInvite = function () {
-		this._ws.send(pck.cl.declineInvite + ':');
+		this._ws.send(new Uint8Array([pck.cl.declineInvite]).buffer);
 	};
 
 	window.Connection.prototype.sendRsaParams = function (data) {

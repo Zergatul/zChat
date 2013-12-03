@@ -6,3 +6,5 @@ passesLucasLehmer
 
 refactor all hash functions (remove call rotate functions)
 ripemd - refactor
+
+create generic stream random on any hash algorithm

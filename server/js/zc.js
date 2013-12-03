@@ -326,7 +326,7 @@ $(function () {
 			$('#nick-h4').text('Your nick: ' + manager.nick);
 		}, function (msg) {
 			manager.connection.close();
-			manager.modalDialog('Error while registering nick', msg);
+			manager.modalDialog('Error while registering nick', encodings.UTF8.getString(msg));
 			$('#connection-process-div').hide();
 			$('#connect-div').show();
 		});
@@ -384,8 +384,8 @@ $(function () {
 		if (rsaParams.messageLength != 32)
 			throw 'Invalid message length';
 
-		manager.aesKey = random.SHA2PRNG.getUint8Array(16);
-		manager.hmacKey = random.SHA2PRNG.getUint8Array(16);
+		manager.aesKey = Random.SHA2PRNG.getUint8Array(16);
+		manager.hmacKey = Random.SHA2PRNG.getUint8Array(16);
 		var message = new Uint8Array(32);
 		message.set(manager.aesKey, 0);
 		message.set(manager.hmacKey, 16);
@@ -536,14 +536,14 @@ $(function () {
 
 	helper.encrypt = function (text) {
 		var bytes = encodings.UTF8.getBytes(text);
-		var encBytes = aes.encrypt(bytes, manager.aesKey, paddings.PKCS7);
-		return bh.byteArrayToHex(encBytes);
+		var encryptor = new AES().createEncryptor(manager.aesKey, CipherMode.CBC, paddings.PKCS7, Random.SHA2PRNG);
+		return bh.byteArrayToHex(encryptor.process(bytes));
 	};
 
 	helper.decrypt = function (text) {
 		var bytes = bh.hexToByteArray(text);
-		var decBytes = aes.decrypt(bytes, manager.aesKey, paddings.PKCS7);
-		return encodings.UTF8.getString(decBytes);
+		var decryptor = new AES().createDecryptor(manager.aesKey, CipherMode.CBC, paddings.PKCS7, Random.SHA2PRNG);
+		return encodings.UTF8.getString(decryptor.process(bytes));
 	};
 
 	helper.loadIcon = function (url) {
@@ -575,7 +575,7 @@ $(function () {
 	fileSender.partSize = 1024;
 
 	fileSender.send = function (name, data) {
-		var fileuid = bh.byteArrayToHex(random.SHA2PRNG.getUint8Array(32));
+		var fileuid = bh.byteArrayToHex(Random.SHA2PRNG.getUint8Array(32));
 		manager.connection.sendFileInfo(fileuid, name, data.length);
 		var div = manager.addFileMessage('panel-success', manager.nick, name, data.length);
 		div.attr('data-fileuid', fileuid);

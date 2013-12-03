@@ -1,17 +1,15 @@
 (function () {
 
-	if (bh == undefined)
+	if (window.bh == undefined)
 		throw 'bithelper.js not loaded';
-	if (HashAlgorithm == undefined)
+	if (window.HashAlgorithm == undefined)
 		throw 'hash.algorithm.js not loaded';
 
-	window.RIPEMD160 = function () {};
-	window.RIPEMD160.prototype = new HashAlgorithm();
-	window.RIPEMD160.prototype.hashSize = 160;
+	window.HashAlgorithm.RIPEMD160 = function () {};
+	window.HashAlgorithm.RIPEMD160.prototype = new HashAlgorithm();
+	window.HashAlgorithm.RIPEMD160.prototype.hashSize = 160;
 
-	window.hashAlgorithms.ripemd160 = new RIPEMD160();
-
-	window.RIPEMD160.prototype.computeHash = function (bytes) {
+	window.HashAlgorithm.RIPEMD160.prototype.computeHash = function (bytes) {
 
 		if (bytes instanceof Array)
 			bytes = new Uint8Array(bytes);

@@ -1,15 +1,13 @@
 (function () {
 
-	if (bh == undefined)
+	if (window.bh == undefined)
 		throw 'bithelper.js not loaded';
-	if (HashAlgorithm == undefined)
+	if (window.HashAlgorithm == undefined)
 		throw 'hash.algorithm.js not loaded';
 
-	window.MD5 = function () {};
-	window.MD5.prototype = new HashAlgorithm();
-	window.MD5.prototype.hashSize = 128;
-
-	window.hashAlgorithms.md5 = new MD5();
+	window.HashAlgorithm.MD5 = function () {};
+	window.HashAlgorithm.MD5.prototype = new HashAlgorithm();
+	window.HashAlgorithm.MD5.prototype.hashSize = 128;
 
 	var s = new Uint8Array([
 		7, 12, 17, 22,  7, 12, 17, 22,  7, 12, 17, 22,  7, 12, 17, 22,
@@ -35,7 +33,7 @@
 		0x6fa87e4f, 0xfe2ce6e0, 0xa3014314, 0x4e0811a1,
 		0xf7537e82, 0xbd3af235, 0x2ad7d2bb, 0xeb86d391]);
 
-	window.MD5.prototype.computeHash = function (bytes) {
+	window.HashAlgorithm.MD5.prototype.computeHash = function (bytes) {
 		
 		if (bytes instanceof Array)
 			bytes = new Uint8Array(bytes);

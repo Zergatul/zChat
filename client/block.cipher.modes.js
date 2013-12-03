@@ -1,5 +1,0 @@
-(function () {
-	
-	window.BlockCipherMode = function () { };
-
-})();

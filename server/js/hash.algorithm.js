@@ -7,4 +7,6 @@
 		throw 'Not implemented';
 	};
 
+	window.hashAlgorithms = {};
+
 })();

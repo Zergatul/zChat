@@ -1,30 +1,25 @@
 (function () {
 
-	if (bh == undefined)
+	if (window.bh == undefined)
 		throw 'bithelper.js not loaded';
-	if (HashAlgorithm == undefined)
+	if (window.HashAlgorithm == undefined)
 		throw 'hash.algorithm.js not loaded';
 
-	window.SHA224 = function () {};
-	window.SHA224.prototype = new HashAlgorithm();
-	window.SHA224.prototype.hashSize = 224;
+	window.HashAlgorithm.SHA224 = function () {};
+	window.HashAlgorithm.SHA224.prototype = new HashAlgorithm();
+	window.HashAlgorithm.SHA224.prototype.hashSize = 224;
 
-	window.SHA256 = function () {};
-	window.SHA256.prototype = new HashAlgorithm();
-	window.SHA256.prototype.hashSize = 256;
+	window.HashAlgorithm.SHA256 = function () {};
+	window.HashAlgorithm.SHA256.prototype = new HashAlgorithm();
+	window.HashAlgorithm.SHA256.prototype.hashSize = 256;
 
-	window.SHA384 = function () {};
-	window.SHA384.prototype = new HashAlgorithm();
-	window.SHA384.prototype.hashSize = 384;
+	window.HashAlgorithm.SHA384 = function () {};
+	window.HashAlgorithm.SHA384.prototype = new HashAlgorithm();
+	window.HashAlgorithm.SHA384.prototype.hashSize = 384;
 
-	window.SHA512 = function () {};
-	window.SHA512.prototype = new HashAlgorithm();
-	window.SHA512.prototype.hashSize = 512;
-
-	window.hashAlgorithms.sha224 = new SHA224();
-	window.hashAlgorithms.sha256 = new SHA256();
-	window.hashAlgorithms.sha384 = new SHA384();
-	window.hashAlgorithms.sha512 = new SHA512();
+	window.HashAlgorithm.SHA512 = function () {};
+	window.HashAlgorithm.SHA512.prototype = new HashAlgorithm();
+	window.HashAlgorithm.SHA512.prototype.hashSize = 512;
 
 	var k32 = new Int32Array([
 		0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
@@ -300,9 +295,9 @@
 			return new Uint8Array(b64(bytes, version == 512));
 	};
 
-	window.SHA224.prototype.computeHash = function (bytes) { return computeHash(bytes, 224); };
-	window.SHA256.prototype.computeHash = function (bytes) { return computeHash(bytes, 256); };
-	window.SHA384.prototype.computeHash = function (bytes) { return computeHash(bytes, 384); };
-	window.SHA512.prototype.computeHash = function (bytes) { return computeHash(bytes, 512); };
+	window.HashAlgorithm.SHA224.prototype.computeHash = function (bytes) { return computeHash(bytes, 224); };
+	window.HashAlgorithm.SHA256.prototype.computeHash = function (bytes) { return computeHash(bytes, 256); };
+	window.HashAlgorithm.SHA384.prototype.computeHash = function (bytes) { return computeHash(bytes, 384); };
+	window.HashAlgorithm.SHA512.prototype.computeHash = function (bytes) { return computeHash(bytes, 512); };
 
 })();
