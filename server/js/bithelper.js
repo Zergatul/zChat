@@ -159,4 +159,58 @@
 		return new Int64(i1._hi & i2._hi, i1._lo & i2._lo);
 	};
 
+	window.BinaryWriter = function () {
+		this._data = [];
+	};
+	window.BinaryWriter.prototype.writeByte = function (val) {
+		this._data.push(val);
+	};
+	window.BinaryWriter.prototype.writeInt16 = function (val) {
+		this._data.push(val & 0xff);
+		this._data.push((val >>> 8) & 0xff);
+	};
+	window.BinaryWriter.prototype.writeInt32 = function (val) {
+		var buf = bh.intToBytesLE(val);
+		for (var i = 0; i < 4; i++)
+			this._data.push(buf[i]);
+	};
+	window.BinaryWriter.prototype.writeBytes = function (array) {
+		for (var i = 0; i < array.length; i++)
+			this._data.push(array[i]);
+	};
+	window.BinaryWriter.prototype.toUint8Array = function () {
+		return new Uint8Array(this._data);
+	};
+
+	window.BinaryReader = function (array) {
+		this._data = new Uint8Array(array);
+		this._index = 0;
+	};
+	window.BinaryReader.prototype.readByte = function () {
+		return this._data[this._index++];
+	};
+	window.BinaryReader.prototype.readInt16 = function () {
+		var lo = this.readByte();
+		var hi = this.readByte();
+		return lo | (hi << 8);
+	};
+	window.BinaryReader.prototype.readInt32 = function () {
+		var index = this._index;
+		this._index += 4;
+		return bh.bytesToIntLE(this._data, index);
+	};
+	window.BinaryReader.prototype.readBytes = function (length) {
+		if (length == undefined) {
+			var index = this._index;
+			this._index = this._data.length;
+			return this._data.subarray(index);
+		} else {
+			var index = this._index;
+			this._index += length;
+			return this._data.subarray(index, index + length);
+		}
+	};
+
+	// TODO
+
 })();

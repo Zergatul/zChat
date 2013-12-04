@@ -178,13 +178,37 @@
 		for (var i = 0; i < array.length; i++)
 			this._data.push(array[i]);
 	};
-	window.BinaryWriter.prototype.getUint8Array = function () {
+	window.BinaryWriter.prototype.toUint8Array = function () {
 		return new Uint8Array(this._data);
 	};
 
 	window.BinaryReader = function (array) {
 		this._data = new Uint8Array(array);
 		this._index = 0;
+	};
+	window.BinaryReader.prototype.readByte = function () {
+		return this._data[this._index++];
+	};
+	window.BinaryReader.prototype.readInt16 = function () {
+		var lo = this.readByte();
+		var hi = this.readByte();
+		return lo | (hi << 8);
+	};
+	window.BinaryReader.prototype.readInt32 = function () {
+		var index = this._index;
+		this._index += 4;
+		return bh.bytesToIntLE(this._data, index);
+	};
+	window.BinaryReader.prototype.readBytes = function (length) {
+		if (length == undefined) {
+			var index = this._index;
+			this._index = this._data.length;
+			return this._data.subarray(index);
+		} else {
+			var index = this._index;
+			this._index += length;
+			return this._data.subarray(index, index + length);
+		}
 	};
 
 	// TODO

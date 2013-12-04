@@ -108,8 +108,8 @@
 		this._ws.close();
 	};
 
-	var makeBuffer = function (id, str) {
-		var bytes = encodings.UTF8.getBytes(str);
+	var makeBuffer = function (id, data) {
+		var bytes = typeof data == 'string' ? encodings.UTF8.getBytes(data) : data;
 		var buf = new Uint8Array(bytes.length + 1)
 		buf.set(bytes, 1);
 		buf[0] = id;
@@ -141,49 +141,43 @@
 	window.Connection.prototype.sendRsaParams = function (keyLength, messageLength, n, e) {
 		var nBin = n.toUint8Array();
 		var eBin = e.toUint8Array();
-		var bs = new BinaryStream();
-		bs.writeByte(pck.cl.rsaParams);
-		bs.writeInt32(keyLength);
-		bs.writeInt32(messageLength);
-		bs.writeInt32(nBin.length);
-		bs.writeBytes(nBin);
-		bs.writeInt32(eBin.length);
-		bs.writeBytes(eBin);
-		this._ws.send(bs.getUint8Array());
+		var bw = new BinaryWriter();
+		bw.writeByte(pck.cl.rsaParams);
+		bw.writeInt32(keyLength);
+		bw.writeInt32(messageLength);
+		bw.writeInt32(nBin.length);
+		bw.writeBytes(nBin);
+		bw.writeInt32(eBin.length);
+		bw.writeBytes(eBin);
+		this._ws.send(bw.toUint8Array());
 	};
 
 	window.Connection.prototype.sendSessionKey = function (data) {
-		var bs = new BinaryStream();
-		bs.writeByte(pck.cl.sessionKey);
-		bs.writeBytes(data);
-		this._ws.send(bs.getUint8Array());
+		this._ws.send(makeBuffer(pck.cl.sessionKey, data));
 	};
 
 	window.Connection.prototype.sendMessage = function (data) {
-		var bs = new BinaryStream();
-		bs.writeByte(pck.cl.message);
-		bs.writeBytes(data);
-		this._ws.send(bs.getUint8Array());
+		this._ws.send(makeBuffer(pck.cl.message, data));
 	};
 
-	window.Connection.prototype.sendFileInfo = function (fileuid, name, size) {
-		this._ws.send(pck.cl.fileInfo + ':' + fileuid + ':' + name + ':' + size);
+	window.Connection.prototype.sendFileInfo = function (data) {
+		this._ws.send(makeBuffer(pck.cl.fileInfo, data));
 	};
 
-	window.Connection.prototype.sendBeginDownload = function (fileuid) {
-		this._ws.send(pck.cl.beginDownload + ':' + fileuid);
+	window.Connection.prototype.sendBeginDownload = function (data) {
+		this._ws.send(makeBuffer(pck.cl.beginDownload, data));
 	};
 
-	window.Connection.prototype.sendRequestFileData = function (fileuid, from, len) {
-		this._ws.send(pck.cl.requestFileData + ':' + fileuid + ':' + from + ':' + len);
+	window.Connection.prototype.sendRequestFileData = function (data) {
+		this._ws.send(makeBuffer(pck.cl.requestFileData, data));
 	};
 
-	window.Connection.prototype.sendFileData = function (fileuid, from, len, data) {
-		this._ws.send(pck.cl.fileData + ':' + fileuid + ':' + from + ':' + len + ':' + bh.byteArrayToHex(data));
+	window.Connection.prototype.sendFileData = function (data) {
+		this._ws.send(makeBuffer(pck.cl.fileData, data));
 	};
 
-	window.Connection.prototype.sendEndDownload = function (fileuid) {
-		this._ws.send(pck.cl.endDownload + ':' + fileuid);
+	window.Connection.prototype.sendEndDownload = function (data) {
+		this._ws.send(makeBuffer(pck.cl.endDownload, data));
 	};
 
 	window.Connection.prototype.onConnect = function (func) {
