@@ -391,7 +391,7 @@ $(function () {
 		message.set(manager.hmacKey, 16);
 
 		var data = rsa.encode(message, rsaParams);
-		manager.connection.sendSessionKey(bh.byteArrayToHex(data));
+		manager.connection.sendSessionKey(data);
 	};
 
 	conHandlers.onSessionKey = function (data) {
@@ -537,11 +537,10 @@ $(function () {
 	helper.encrypt = function (text) {
 		var bytes = encodings.UTF8.getBytes(text);
 		var encryptor = new AES().createEncryptor(manager.aesKey, CipherMode.CBC, paddings.PKCS7, Random.SHA2PRNG);
-		return bh.byteArrayToHex(encryptor.process(bytes));
+		return encryptor.process(bytes);
 	};
 
-	helper.decrypt = function (text) {
-		var bytes = bh.hexToByteArray(text);
+	helper.decrypt = function (bytes) {
 		var decryptor = new AES().createDecryptor(manager.aesKey, CipherMode.CBC, paddings.PKCS7, Random.SHA2PRNG);
 		return encodings.UTF8.getString(decryptor.process(bytes));
 	};

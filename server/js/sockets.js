@@ -138,16 +138,32 @@
 		this._ws.send(new Uint8Array([pck.cl.declineInvite]).buffer);
 	};
 
-	window.Connection.prototype.sendRsaParams = function (data) {
-		this._ws.send(pck.cl.rsaParams + ':' + data);
+	window.Connection.prototype.sendRsaParams = function (keyLength, messageLength, n, e) {
+		var nBin = n.toUint8Array();
+		var eBin = e.toUint8Array();
+		var bs = new BinaryStream();
+		bs.writeByte(pck.cl.rsaParams);
+		bs.writeInt32(keyLength);
+		bs.writeInt32(messageLength);
+		bs.writeInt32(nBin.length);
+		bs.writeBytes(nBin);
+		bs.writeInt32(eBin.length);
+		bs.writeBytes(eBin);
+		this._ws.send(bs.getUint8Array());
 	};
 
 	window.Connection.prototype.sendSessionKey = function (data) {
-		this._ws.send(pck.cl.sessionKey + ':' + data);
+		var bs = new BinaryStream();
+		bs.writeByte(pck.cl.sessionKey);
+		bs.writeBytes(data);
+		this._ws.send(bs.getUint8Array());
 	};
 
-	window.Connection.prototype.sendMessage = function (text) {
-		this._ws.send(pck.cl.message + ':' + text);
+	window.Connection.prototype.sendMessage = function (data) {
+		var bs = new BinaryStream();
+		bs.writeByte(pck.cl.message);
+		bs.writeBytes(data);
+		this._ws.send(bs.getUint8Array());
 	};
 
 	window.Connection.prototype.sendFileInfo = function (fileuid, name, size) {

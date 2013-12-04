@@ -159,4 +159,34 @@
 		return new Int64(i1._hi & i2._hi, i1._lo & i2._lo);
 	};
 
+	window.BinaryWriter = function () {
+		this._data = [];
+	};
+	window.BinaryWriter.prototype.writeByte = function (val) {
+		this._data.push(val);
+	};
+	window.BinaryWriter.prototype.writeInt16 = function (val) {
+		this._data.push(val & 0xff);
+		this._data.push((val >>> 8) & 0xff);
+	};
+	window.BinaryWriter.prototype.writeInt32 = function (val) {
+		var buf = bh.intToBytesLE(val);
+		for (var i = 0; i < 4; i++)
+			this._data.push(buf[i]);
+	};
+	window.BinaryWriter.prototype.writeBytes = function (array) {
+		for (var i = 0; i < array.length; i++)
+			this._data.push(array[i]);
+	};
+	window.BinaryWriter.prototype.getUint8Array = function () {
+		return new Uint8Array(this._data);
+	};
+
+	window.BinaryReader = function (array) {
+		this._data = new Uint8Array(array);
+		this._index = 0;
+	};
+
+	// TODO
+
 })();
