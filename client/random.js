@@ -5,8 +5,15 @@
 	window.Random.prototype.nextUint8 = function () { throw 'Not implemented'; };
 	window.Random.prototype.nextUint16 = function () { throw 'Not implemented'; };
 	window.Random.prototype.nextInt32 = function () { throw 'Not implemented'; };
-	window.Random.prototype.nextBefore = function (max) { throw 'Not implemented'; };
-	window.Random.prototype.nextRange = function (min, max) { throw 'Not implemented'; };
+	window.Random.prototype.nextBefore = function (max) {
+		return Math.floor(this.nextDouble() * max);
+	};
+	window.Random.prototype.nextRange = function (min, max) {
+		return min + Math.floor(Math.random() * (max - min));
+	};
+	window.Random.prototype.nextDouble = function () {
+		return (2147483648 + this.nextInt32()) / 4294967296;
+	};
 	window.Random.prototype.getUint8Array = function (length) {
 		var array = new Uint8Array(length);
 		for (var i = 0; i < length; i++)
@@ -52,8 +59,7 @@
 	window.Random.Default.nextUint8 = function () { return Math.floor(Math.random() * 0x100); };
 	window.Random.Default.nextUint16 = function () { return Math.floor(Math.random() * 0x10000); };
 	window.Random.Default.nextInt32 = function () { return Math.floor(Math.random() * 0x100000000); };
-	window.Random.Default.nextBefore = function (max) { return Math.floor(Math.random() * max); };
-	window.Random.Default.nextRange = function (min, max) { return min + Math.floor(Math.random() * (max - min)); };
+	window.Random.Default.nextDouble = function () { return Math.random(); };
 
 	window.Random.SHA2PRNG = new StreamRandom();
 	window.Random.SHA2PRNG.init = function (seed) {

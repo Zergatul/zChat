@@ -12,6 +12,7 @@ $(function () {
 		$('#connect-btn').click(manager.onConnectBtnClick);
 		$('#random-nick-btn').click(manager.onRandomBtnClick);
 		$('#chat-invite-btn').click(manager.onChatInviteBtnClick);
+		$('#rnd-pwd-btn').click(manager.onRandomPasswordClick);
 		$('#accept-invite-btn').click(manager.onAcceptInviteBtnClick);
 		$('#decline-invite-btn').click(manager.onDeclineInviteBtnClick);
 		$('#send-btn').click(manager.sendMessage);
@@ -26,6 +27,9 @@ $(function () {
 		// ?
 		manager.setupFilesDragAndDrop();
 
+		// setup tooltips
+		$('[rel=tooltip]').tooltip();
+
 		// setup clearing blink messages
 		manager.keyPressed = false;
 		manager.blinkMessages = [];
@@ -39,7 +43,7 @@ $(function () {
 	manager.onConnectBtnClick = function () {
 		manager.nick = $('#nick-input').val();
 		if (manager.nick.length == 0) {
-			manager.modalDialog('Validation', 'Empty nick not allowed');
+			manager.modalDialog('Validation', 'Empty nick not allowed', true);
 			return;
 		}
 
@@ -81,6 +85,14 @@ $(function () {
 			partnerNick,
 			conHandlers.onChatInviteSuccess,
 			conHandlers.onChatInviteFailed);
+	};
+
+	manager.onRandomPasswordClick = function () {
+		var symbols = 'qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM1234567890';
+		var pwd = '';
+		for (var i = 0; i < 20; i++)
+			pwd += symbols.charAt(Random.SHA2PRNG.nextBefore(symbols.length));
+		$('#pwd-input').val(pwd);
 	};
 
 	manager.onAcceptInviteBtnClick = function () {
@@ -243,10 +255,10 @@ $(function () {
 			}
 	};
 
-	manager.modalDialog = function (title, text) {
+	manager.modalDialog = function (title, inner, allowEsc) {
 		$('#modal-dialog-div .modal-title').text(title);
-		$('#modal-dialog-div .modal-body').text(text);		
-		$('#modal-dialog-div').modal();
+		$('#modal-dialog-div .modal-body').empty().append(inner);		
+		$('#modal-dialog-div').modal({ backdrop: 'static', keyboard: allowEsc });
 	};
 
 	manager.setChatDivHeight = function () {
