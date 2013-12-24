@@ -19,10 +19,14 @@ $(function () {
 		$('#text-input-div input').on('keypress', manager.onTextInputKeyPress);
 		$(window).resize(manager.onWindowResize);
 		$('#clear-all-link').click(manager.onClearAllClick);
+		$('#send-file-link').click(manager.onSendFileClick);
 		$('#disconnect-link').click(manager.onDisconnectClick);
 		$('#terminate-session-link').click(manager.onTerminateSessionClick);
 		$(document).on('keypress', manager.onKeyPress);
 		$(document).on('click', manager.onKeyPress);
+		$('.z-file-input > button').click(manager.onChooseFileClick);
+		$('.z-file-input > input[type=file]').change(manager.onFileInputChange);
+		$('#send-file-btn').click(manager.onSendFileBtnClick);
 
 		// ?
 		manager.setupFilesDragAndDrop();
@@ -47,8 +51,8 @@ $(function () {
 			return;
 		}
 
-		$('#connect-div').hide();
-		$('#connection-process-div').show();
+		$('#connect-div').addClass('z-hidden');
+		$('#connection-process-div').removeClass('z-hidden');
 
 		manager.connection = new Connection();
 		manager.connection.onConnect(conHandlers.onConnect);
@@ -78,8 +82,8 @@ $(function () {
 			manager.modalDialog('Validation', 'Empty nick not allowed');
 			return;
 		}
-		$('#choose-partner-div').hide();
-		$('#choose-partner-request-div').show();
+		$('#choose-partner-div').addClass('z-hidden');
+		$('#choose-partner-request-div').removeClass('z-hidden');
 
 		manager.connection.inviteForChatting(
 			partnerNick,
@@ -90,7 +94,7 @@ $(function () {
 	manager.onRandomPasswordClick = function () {
 		var symbols = 'qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM1234567890';
 		var pwd = '';
-		for (var i = 0; i < 20; i++)
+		for (var i = 0; i < 48; i++)
 			pwd += symbols.charAt(Random.SHA2PRNG.nextBefore(symbols.length));
 		$('#pwd-input').val(pwd);
 	};
@@ -98,15 +102,15 @@ $(function () {
 	manager.onAcceptInviteBtnClick = function () {
 		manager.connection.acceptInvite();
 		clearInterval(manager.timer);
-		$('#choose-partner-response-div').hide();
-		$('#session-init-div').show();
+		$('#choose-partner-response-div').addClass('z-hidden');
+		$('#session-init-div').removeClass('z-hidden');
 	};
 
 	manager.onDeclineInviteBtnClick = function () {
 		manager.connection.declineInvite();
 		clearInterval(manager.timer);
-		$('#choose-partner-response-div').hide();
-		$('#choose-partner-div').show();
+		$('#choose-partner-response-div').addClass('z-hidden');
+		$('#choose-partner-div').removeClass('z-hidden');
 	};
 
 	manager.onTextInputKeyPress = function (e) {
@@ -121,13 +125,44 @@ $(function () {
 	};
 
 	manager.onClearAllClick = function () {
-		$('#messages-div > div:first').hide();
+		$('#messages-div > div:first').addClass('z-hidden');
 		$('#messages-div > div:gt(0)').remove();
+	};
+
+	manager.onChooseFileClick = function () {
+		//
+		$('.z-file-input > input[type=file]').click();
+	};
+
+	manager.onFileInputChange = function () {
+		var file = $(this).val();
+		$('.z-file-input > span').text(file);
+		if (file == '')
+			$('#send-file-btn').attr('disabled', true);
+		else
+			$('#send-file-btn').removeAttr('disabled');
+	};
+
+	manager.onSendFileBtnClick = function () {
+		var file = $('.z-file-input > input[type=file]')[0].files[0];
+		var reader = new FileReader();
+		reader.onload = function (event) {
+			var buffer = event.target.result;
+			var data = new Uint8Array(buffer);
+			fileSender.send(file.name, data);
+		};
+		reader.readAsArrayBuffer(file);
+
+		$('#send-file-dialog-div').modal('hide');
+	};
+
+	manager.onSendFileClick = function () {
+		$('#send-file-dialog-div').modal({ backdrop: 'static', keyboard: true });
 	};
 
 	manager.onDisconnectClick = function () {
 		manager.blinkMessages = [];
-		$('#messages-div > div:first').hide();
+		$('#messages-div > div:first').addClass('z-hidden');
 		$('#messages-div > div:gt(0)').remove();
 		manager.connection.close();
 	};
@@ -166,27 +201,28 @@ $(function () {
 
 	// TODO: refactor
 	manager.addFileMessage = function (cssClass, title, fileName, size, blinked, data) {
-		var msgDiv = manager.messageTemplate.clone();
-		msgDiv.removeClass('panel-primary');
+		var msgDiv = $('#file-message-template').clone();
+		msgDiv.removeClass('z-hidden');
+		msgDiv.removeAttr('id');
 		msgDiv.addClass(cssClass);
 		msgDiv.find('.panel-title:first').text(title);
 		msgDiv.find('.panel-title:last').text(helper.currentDate());
-		msgDiv.find('.panel-body').empty();
-		msgDiv.find('.panel-body').html((blinked ? 'Incoming file' : 'Outcoming file') + ': ' + fileName + ' (' + size + ' bytes)');
-		msgDiv.find('.panel-body').append($('<br>'));
-		var sha1 = data == undefined ? '???' : bh.byteArrayToHex(new HashAlgorithm.SHA1().computeHash(data));
-		msgDiv.find('.panel-body').append('SHA1: ');
-		msgDiv.find('.panel-body').append($('<span>').attr('data-hash', 'sha1').text(sha1));
-		msgDiv.find('.panel-body').append($('<br>'));
-		var md5 = data == undefined ? '???' : bh.byteArrayToHex(new HashAlgorithm.MD5().computeHash(data));
-		msgDiv.find('.panel-body').append('MD5: ');
-		msgDiv.find('.panel-body').append($('<span>').attr('data-hash', 'md5').text(md5));
-		msgDiv.find('.panel-body').append($('<br>'));
-		if (blinked) {
-			msgDiv.find('.panel-body').append($('<button>')
-				.addClass('btn btn-primary')
-				.attr('type', 'button')
-				.text('Download')
+		
+		msgDiv.find('span.z-file-label:first').text(fileName);
+		msgDiv.find('span.z-file-label:last').text(manager.fileSizeToString(size));
+
+		if (data != undefined) {
+			var sha1 = bh.byteArrayToHex(new HashAlgorithm.SHA1().computeHash(data));
+			msgDiv.find('span[data-hash=sha1]').text(sha1);
+			var md5 = bh.byteArrayToHex(new HashAlgorithm.MD5().computeHash(data));
+			msgDiv.find('span[data-hash=md5]').text(md5);
+		} else {
+			msgDiv.find('span[data-hash=sha1]').parent().addClass('z-hidden');
+			msgDiv.find('span[data-hash=md5]').parent().addClass('z-hidden');
+		}
+
+		if (blinked)
+			msgDiv.find('button')
 				.click(function () {
 					var panel = $(this).closest('div.panel');
 					var fileuid = bh.hexToByteArray(panel.attr('data-fileuid'));
@@ -195,8 +231,10 @@ $(function () {
 					bar.css('margin-bottom', '5px');
 					$(this).replaceWith(bar);
 					fileSender.download(fileuid);
-				}));
-		}
+				});
+		else
+			msgDiv.find('button').addClass('z-hidden');
+
 		msgDiv.appendTo($('#messages-div'));
 		msgDiv.data('date', new Date());
 		if (blinked) {
@@ -211,6 +249,14 @@ $(function () {
 		}
 
 		return msgDiv;
+	};
+
+	manager.fileSizeToString = function (size) {
+		if (size < 1024)
+			return size + 'b';
+		if (size < 1024 * 1024)
+			return (size / 1024).toFixed(2) + 'Kb';
+		return (size / 1024 / 1024)	.toFixed(2) + 'Mb';
 	};
 
 	manager.sendMessage = function () {
@@ -286,6 +332,8 @@ $(function () {
 				}
 			if (!correctType)
 				return;
+			if (!$('#chat-div').is(':visible'))
+				return;
 
 			event.preventDefault();
 
@@ -328,14 +376,14 @@ $(function () {
 
 	conHandlers.onConnect = function () {
 		manager.connection.sendNick(manager.nick, function () {
-			$('#connection-process-div').hide();
-			$('#choose-partner-div').show();
+			$('#connection-process-div').addClass('z-hidden');
+			$('#choose-partner-div').removeClass('z-hidden');
 			$('#nick-h4').text('Your nick: ' + manager.nick);
 		}, function (msg) {
 			manager.connection.close();
 			manager.modalDialog('Error while registering nick', encodings.UTF8.getString(msg));
-			$('#connection-process-div').hide();
-			$('#connect-div').show();
+			$('#connection-process-div').addClass('z-hidden');
+			$('#connect-div').removeClass('z-hidden');
 		});
 	};
 
@@ -345,21 +393,21 @@ $(function () {
 	};
 
 	conHandlers.onDisconnect = function () {
-		$('#connection-process-div').hide();
-		$('#choose-partner-div').hide();
-		$('#choose-partner-request-div').hide();
-		$('#choose-partner-response-div').hide();
-		$('#session-init-div').hide();
-		$('#chat-div').hide();
-		$('#connect-div').show();
+		$('#connection-process-div').addClass('z-hidden');
+		$('#choose-partner-div').addClass('z-hidden');
+		$('#choose-partner-request-div').addClass('z-hidden');
+		$('#choose-partner-response-div').addClass('z-hidden');
+		$('#session-init-div').addClass('z-hidden');
+		$('#chat-div').addClass('z-hidden');
+		$('#connect-div').removeClass('z-hidden');
 		manager.connection = null;
 		manager.blinkMessages = [];
 	};
 
 	conHandlers.onChatRequest = function (data) {
 		var partnerNick = encodings.UTF8.getString(data);
-		$('#choose-partner-div').hide();
-		$('#choose-partner-response-div').show();
+		$('#choose-partner-div').addClass('z-hidden');
+		$('#choose-partner-response-div').removeClass('z-hidden');
 		$('#chat-inviting-p').text(partnerNick + ' is inviting you for chatting.');
 
 		var maxTime = 300;
@@ -411,9 +459,9 @@ $(function () {
 
 	conHandlers.onSessionInit = function (data) {
 		manager.partnerNick = encodings.UTF8.getString(data);
-		$('#session-init-div').hide();
-		$('#chat-div').show();
-		$('#messages-div > div:first').show();
+		$('#session-init-div').addClass('z-hidden');
+		$('#chat-div').removeClass('z-hidden');
+		$('#messages-div > div:first').removeClass('z-hidden');
 		$('#messages-div > div:gt(0)').remove();
 		manager.setChatDivHeight();
 	};
@@ -424,11 +472,11 @@ $(function () {
 	};
 
 	conHandlers.onPartnerDisconnect = function () {
-		$('#choose-partner-request-div').hide();
-		$('#choose-partner-response-div').hide();
-		$('#session-init-div').hide();
-		$('#chat-div').hide();
-		$('#choose-partner-div').show();
+		$('#choose-partner-request-div').addClass('z-hidden');
+		$('#choose-partner-response-div').addClass('z-hidden');
+		$('#session-init-div').addClass('z-hidden');
+		$('#chat-div').addClass('z-hidden');
+		$('#choose-partner-div').removeClass('z-hidden');
 		manager.modalDialog('Information', 'You partner was disconnected from server');
 	};
 
@@ -444,8 +492,8 @@ $(function () {
 			var time = maxTime - Math.round((new Date() - startTime) / 100);
 			if (time <= 0) {
 				clearInterval(manager.timer);
-				$('#choose-partner-request-div').hide();
-				$('#choose-partner-div').show();		
+				$('#choose-partner-request-div').addClass('z-hidden');
+				$('#choose-partner-div').removeClass('z-hidden');		
 				return;
 			}
 			if (gotResponse) {
@@ -460,8 +508,8 @@ $(function () {
 		manager.connection.waitForInviteResponse(function () {
 			gotResponse = true;
 
-			$('#choose-partner-request-div').hide();
-			$('#session-init-div').show();
+			$('#choose-partner-request-div').addClass('z-hidden');
+			$('#session-init-div').removeClass('z-hidden');
 
 			manager.rsaParams = rsa.generateParameters(1024, 32);
 			manager.connection.sendRsaParams(
@@ -472,16 +520,16 @@ $(function () {
 		}, function (data) {
 			gotResponse = true;
 
-			$('#choose-partner-request-div').hide();
-			$('#choose-partner-div').show();
+			$('#choose-partner-request-div').addClass('z-hidden');
+			$('#choose-partner-div').removeClass('z-hidden');
 			manager.modalDialog('Error while waiting for user response', encodings.UTF8.getString(data));
 		});
 	};
 
 	conHandlers.onChatInviteFailed = function (data) {
 		manager.modalDialog('Error while sending chat invitation', encodings.UTF8.getString(data));
-		$('#choose-partner-request-div').hide();
-		$('#choose-partner-div').show();
+		$('#choose-partner-request-div').addClass('z-hidden');
+		$('#choose-partner-div').removeClass('z-hidden');
 	};
 
 	conHandlers.onFileInfo = function (data) {
@@ -532,7 +580,7 @@ $(function () {
 		var fileuidHex = bh.byteArrayToHex(fileuid);
 		var panel = $('div.panel[data-fileuid=' + fileuidHex + ']');
 		if (panel.length)
-			panel.find('.progress').replaceWith('Uploaded');
+			panel.find('.progress').replaceWith('<div><span style="font-size: 13px;" class="label label-success">Uploaded</span></div>');
 	};
 
 	//*******************************************
