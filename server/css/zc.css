@@ -197,11 +197,14 @@
 
 .z-file-label {
 	font-size: 13px;
+	background-color: #999999;
 }
 
 .z-file-hash {
 	font-size: 13px;
 	font-family: courier new;
+	background-color: #FAFFE0;
+	color: #6B6B6B;
 }
 
 .z-file-info-div > div {

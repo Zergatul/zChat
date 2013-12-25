@@ -121,10 +121,15 @@
 		setupHandlers(this, pck.srv.nickResponse, onSuccess, onFail);
 	};
 
-	window.Connection.prototype.inviteForChatting = function (partnerNick, onSuccess, onFail) {
+	window.Connection.prototype.inviteForChatting = function (partnerNick, rsaKeyLength, aesKeyLength, withPwd, onSuccess, onFail) {
 		var bw = new BinaryWriter();
 		bw.writeByte(pck.cl.chatInvite);
-		bw.writeInt32(partnerNick.length);
+		var bytes = encodings.UTF8.getBytes(partnerNick);
+		bw.writeInt32(bytes.length);
+		bw.writeBytes(bytes);
+		bw.writeInt32(rsaKeyLength);
+		bw.writeInt32(aesKeyLength);
+		bw.writeByte(withPwd ? 1 : 0);
 		this._ws.send(bw.toUint8Array());
 		setupHandlers(this, pck.srv.chatInviteResponse, onSuccess, onFail);
 	};

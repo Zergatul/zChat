@@ -6,8 +6,6 @@ $(function () {
 	var fileSender = {};
 
 	manager.pageInit = function () {
-		manager.messageTemplate = $('#messages-div > div:first').clone();
-
 		// setup handlers
 		$('#connect-btn').click(manager.onConnectBtnClick);
 		$('#random-nick-btn').click(manager.onRandomBtnClick);
@@ -87,8 +85,29 @@ $(function () {
 
 		manager.connection.inviteForChatting(
 			partnerNick,
+			manager.getRsaKeyLength(),
+			manager.getAesKeyLength(),
+			$('#use-pwd-chb').attr('checked'),
 			conHandlers.onChatInviteSuccess,
 			conHandlers.onChatInviteFailed);
+	};
+
+	manager.getRsaKeyLength = function () {
+		if ($('#rsa-1024-rb').attr('checked'))
+			return 1024;
+		if ($('#rsa-1536-rb').attr('checked'))
+			return 1536;
+		if ($('#rsa-2048-rb').attr('checked'))
+			return 2048;
+	};
+
+	manager.getAesKeyLength = function () {
+		if ($('#aes-128-rb').attr('checked'))
+			return 128;
+		if ($('#aes-196-rb').attr('checked'))
+			return 196;
+		if ($('#aes-256-rb').attr('checked'))
+			return 256;
 	};
 
 	manager.onRandomPasswordClick = function () {
@@ -125,8 +144,7 @@ $(function () {
 	};
 
 	manager.onClearAllClick = function () {
-		$('#messages-div > div:first').addClass('z-hidden');
-		$('#messages-div > div:gt(0)').remove();
+		$('#messages-div').empty();
 	};
 
 	manager.onChooseFileClick = function () {
@@ -179,8 +197,11 @@ $(function () {
 
 	// TODO: refactor
 	manager.addMessage = function (cssClass, title, body, blinked) {
-		var msgDiv = manager.messageTemplate.clone();
-		msgDiv.removeClass('panel-primary');
+		var isScrolled = manager.isChatWindowScrolledToBottom();
+
+		var msgDiv = $('#text-message-template').clone();
+		msgDiv.removeClass('z-hidden');
+		msgDiv.removeAttr('id');
 		msgDiv.addClass(cssClass);
 		msgDiv.find('.panel-title:first').text(title);
 		msgDiv.find('.panel-title:last').text(helper.currentDate());
@@ -192,15 +213,14 @@ $(function () {
 			manager.blinkMessages.push(msgDiv);
 		}
 
-		// if contains scroll bar
-		if ($('#messages-div')[0].scrollHeight > $('#messages-div').height()) {
-			$('#messages-div').finish();
-			$('#messages-div').animate({ scrollTop: $('#messages-div')[0].scrollHeight }, 400);
-		}
+		if (isScrolled)
+			manager.scrollChatWindow();
 	};
 
 	// TODO: refactor
 	manager.addFileMessage = function (cssClass, title, fileName, size, blinked, data) {
+		var isScrolled = manager.isChatWindowScrolledToBottom();
+
 		var msgDiv = $('#file-message-template').clone();
 		msgDiv.removeClass('z-hidden');
 		msgDiv.removeAttr('id');
@@ -226,10 +246,13 @@ $(function () {
 				.click(function () {
 					var panel = $(this).closest('div.panel');
 					var fileuid = bh.hexToByteArray(panel.attr('data-fileuid'));
-					var bar = helper.createProgressBar();
+					var bar = helper.createNonAnimatedProgressBar();
 					bar.css('width', '100%');
 					bar.css('margin-bottom', '5px');
+					var isScrolled = manager.isChatWindowScrolledToBottom();
 					$(this).replaceWith(bar);
+					if (isScrolled)
+						manager.scrollChatWindow();
 					fileSender.download(fileuid);
 				});
 		else
@@ -242,13 +265,22 @@ $(function () {
 			manager.blinkMessages.push(msgDiv);
 		}
 
-		// if contains scroll bar
+		if (isScrolled)
+			manager.scrollChatWindow();
+
+		return msgDiv;
+	};
+
+	manager.scrollChatWindow = function () {
 		if ($('#messages-div')[0].scrollHeight > $('#messages-div').height()) {
 			$('#messages-div').finish();
 			$('#messages-div').animate({ scrollTop: $('#messages-div')[0].scrollHeight }, 400);
 		}
+	};
 
-		return msgDiv;
+	manager.isChatWindowScrolledToBottom = function () {
+		return ($('#messages-div')[0].scrollHeight <= $('#messages-div').height()) ||
+			($('#messages-div').scrollTop() + $('#messages-div').height() == $('#messages-div')[0].scrollHeight);
 	};
 
 	manager.fileSizeToString = function (size) {
@@ -405,6 +437,9 @@ $(function () {
 	};
 
 	conHandlers.onChatRequest = function (data) {
+		/**/
+		TODO HERE
+		/**/
 		var partnerNick = encodings.UTF8.getString(data);
 		$('#choose-partner-div').addClass('z-hidden');
 		$('#choose-partner-response-div').removeClass('z-hidden');
@@ -461,8 +496,10 @@ $(function () {
 		manager.partnerNick = encodings.UTF8.getString(data);
 		$('#session-init-div').addClass('z-hidden');
 		$('#chat-div').removeClass('z-hidden');
-		$('#messages-div > div:first').removeClass('z-hidden');
-		$('#messages-div > div:gt(0)').remove();
+		$('#messages-div').empty();
+		$('#text-input-div').find('button').removeAttr('disabled');
+		$('#chat-div').find('input[type=text]').removeAttr('disabled');
+		manager.addMessage('panel-primary', 'Welcome!', 'Chat session begins.');
 		manager.setChatDivHeight();
 	};
 
@@ -472,12 +509,26 @@ $(function () {
 	};
 
 	conHandlers.onPartnerDisconnect = function () {
-		$('#choose-partner-request-div').addClass('z-hidden');
-		$('#choose-partner-response-div').addClass('z-hidden');
-		$('#session-init-div').addClass('z-hidden');
-		$('#chat-div').addClass('z-hidden');
-		$('#choose-partner-div').removeClass('z-hidden');
-		manager.modalDialog('Information', 'You partner was disconnected from server');
+		var isScrolled = manager.isChatWindowScrolledToBottom();
+
+		var msgDiv = $('#end-session-message-template').clone();
+		msgDiv.removeAttr('id').removeClass('z-hidden');
+		msgDiv.find('.panel-title:first').text('Your partner was disconnected from server');
+		msgDiv.find('.panel-title:last').text(helper.currentDate());
+		msgDiv.find('button').click(function () {
+			$('#choose-partner-request-div').addClass('z-hidden');
+			$('#choose-partner-response-div').addClass('z-hidden');
+			$('#session-init-div').addClass('z-hidden');
+			$('#chat-div').addClass('z-hidden');
+			$('#choose-partner-div').removeClass('z-hidden');
+		});
+		msgDiv.appendTo($('#messages-div'));
+
+		$('#text-input-div').find('button').attr('disabled', true);
+		$('#chat-div').find('input[type=text]').attr('disabled', true);
+
+		if (isScrolled)
+			manager.scrollChatWindow();
 	};
 
 	// TODO: refactor
@@ -549,10 +600,13 @@ $(function () {
 		var fileuidHex = bh.byteArrayToHex(fileuid);
 		var panel = $('div.panel[data-fileuid=' + fileuidHex + ']');
 		if (panel.length) {
-			var bar = helper.createProgressBar();
+			var isScrolled = manager.isChatWindowScrolledToBottom();
+			var bar = helper.createNonAnimatedProgressBar();
 			bar.css('style', '100%');
 			bar.css('margin-bottom', '5px');
 			panel.find('.panel-body').append(bar);
+			if (isScrolled)
+				manager.scrollChatWindow();
 		}
 	};
 
@@ -580,7 +634,7 @@ $(function () {
 		var fileuidHex = bh.byteArrayToHex(fileuid);
 		var panel = $('div.panel[data-fileuid=' + fileuidHex + ']');
 		if (panel.length)
-			panel.find('.progress').replaceWith('<div><span style="font-size: 13px;" class="label label-success">Uploaded</span></div>');
+			panel.find('.progress').remove();
 	};
 
 	//*******************************************
@@ -626,6 +680,15 @@ $(function () {
 				.attr('aria-valuemin', 0)
 				.attr('aria-valuemax', 100)
 				.css('width', '0%'));
+		return div;
+	};
+
+	helper.createNonAnimatedProgressBar = function () {
+		var div = helper.createProgressBar();
+		div.find('div').css({
+			'transition': 'none',
+			'-webkit-transition': 'none'
+		});
 		return div;
 	};
 
@@ -706,10 +769,11 @@ $(function () {
 		if (panel.length) {
 			panel.find('.progress-bar').css('width', Math.round(100 * (from + len) / file.size) + '%');
 			if (from + len == file.size) {
+				var isScrolled = manager.isChatWindowScrolledToBottom();
 				var sha1 = bh.byteArrayToHex(new HashAlgorithm.SHA1().computeHash(file.data));
-				panel.find('span[data-hash=sha1]').text(sha1);
+				panel.find('span[data-hash=sha1]').text(sha1).parent().removeClass('z-hidden');
 				var md5 = bh.byteArrayToHex(new HashAlgorithm.MD5().computeHash(file.data));
-				panel.find('span[data-hash=md5]').text(md5);
+				panel.find('span[data-hash=md5]').text(md5).parent().removeClass('z-hidden');
 				panel.find('.progress')
 					.replaceWith($('<button>')
 						.addClass('btn btn-primary')
@@ -722,6 +786,8 @@ $(function () {
 							var blob = new Blob([file.data], { type: 'application/octet-binary' });
 							saveAs(blob, file.name);
 						}));
+				if (isScrolled)
+					manager.scrollChatWindow();
 			}
 		}
 	};

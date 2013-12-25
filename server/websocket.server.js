@@ -138,7 +138,7 @@ var onClose = function (socket) {
 	if (user.state == state.CHATTING_PRIMARY || user.state == state.CHATTING_SECONDARY) {
 		var partner = users[user.partner];
 		if (partner != undefined) {
-			users[user.partner].socket.send(pck.srv.partnerDisconnect + ':');
+			users[user.partner].socket.send(new Buffer([pck.srv.partnerDisconnect]));
 			users[user.partner].state = state.INITIAL;
 		}
 	}
@@ -173,7 +173,8 @@ var onChatInvite = function (socket, data) {
 		console.log('User already in busy state.');
 		return;
 	}
-	var partnerNick = new Buffer(data).toString('utf8');
+	var strLen = data.readInt32LE(0);
+	var partnerNick = data.toString('utf8', 4, 4 + strLen);
 	if (nick == partnerNick) {
 		socket.send(makeBuffer(pck.srv.chatInviteResponse, 'You cannot chat with self'));
 		return;
@@ -196,7 +197,14 @@ var onChatInvite = function (socket, data) {
 		return;
 	}
 	socket.send(new Buffer([pck.srv.chatInviteResponse, okMessage]));
-	partner.socket.send(makeBuffer(pck.srv.otherUserChatInvite, nick));
+
+	var nickBuffer = new Buffer(nick);
+	var buffer = new Buffer(1 + 4 + nickBuffer.length + 8 + 1);
+	buffer[0] = pck.srv.otherUserChatInvite;
+	buffer.writeUInt32LE(nickBuffer.length, 1);
+	nickBuffer.copy(buffer, 5);
+	data.copy(buffer, 1 + 4 + nickBuffer.length, 1 + 4 + strLen);
+	partner.socket.send(buffer);
 
 	users[nick].state = state.WAIT_FOR_INVITE_RESPONSE;
 	users[nick].inviting = partnerNick;

@@ -52,7 +52,7 @@
 					<div class="progress-bar z-progress-full" role="progressbar" aria-valuenow="1" aria-valuemin="0" aria-valuemax="1">
 					</div>
 				</div>
-			</div>			
+			</div>
 		</div>
 
 		<div id="choose-partner-div" class="z-center-div-600 z-hidden">
@@ -104,7 +104,7 @@
 					<div class="z-div-clear"></div>
 					<div class="well z-secret-pwd">
 						<label class="z-font-normal">
-							<input type="checkbox" />
+							<input type="checkbox" id="use-pwd-chb" />
 							<span class="z-pad-left">Use password for key exchange:</span>
 						</label>
 						<div class="input-group">
@@ -114,7 +114,7 @@
 							</span>
 						</div>
 					</div>
-					<div class="alert alert-warning text-left z-margin-top">
+					<div class="alert alert-warning text-left z-margin-top" style="margin-bottom: 0px;">
 						<strong>Warning: </strong>If you don't use password, your security can be totally broken with the  <a href="http://en.wikipedia.org/wiki/Man-in-the-middle_attack" class="alert-link">man-in-the-middle attack</a>.<br />
 						Notes:
 						<ul>
@@ -162,22 +162,11 @@
 		</div>
 
 		<div id="chat-div" class="well z-center-div-600 z-hidden">
-			<div id="messages-div">
-				<div class="panel panel-primary">
-					<div class="panel-heading">
-						<div class="z-float-left"><h3 class="panel-title">Welcome!</h3></div>
-						<div class="z-float-right"><h3 class="panel-title"></h3></div>
-						<div class="z-div-clear"></div>
-					</div>
-					<div class="panel-body">
-						Chat session begins.
-					</div>
-				</div>
-			</div>
+			<div id="messages-div"></div>
 			<div class="input-group" id="text-input-div">
 				<input type="text" class="form-control" />
 				<span class="input-group-btn dropup">
-					<button class="btn btn-primary" type="button" id="send-btn">Send</button>
+					<button type="button" class="btn btn-primary" id="send-btn">Send</button>
 					<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">
 						Options <span class="caret"></span>
 					</button>
@@ -192,6 +181,27 @@
 			</div>
 		</div>
 
+	</div>
+
+	<div class="panel z-hidden" id="text-message-template">
+		<div class="panel-heading">
+			<div class="z-float-left"><h3 class="panel-title"></h3></div>
+			<div class="z-float-right"><h3 class="panel-title"></h3></div>
+			<div class="z-div-clear"></div>
+		</div>
+		<div class="panel-body">
+		</div>
+	</div>
+
+	<div class="panel panel-primary z-hidden" id="end-session-message-template">
+		<div class="panel-heading">
+			<div class="z-float-left"><h3 class="panel-title"></h3></div>
+			<div class="z-float-right"><h3 class="panel-title"></h3></div>
+			<div class="z-div-clear"></div>
+		</div>
+		<div class="panel-body">
+			<button type="button" class="btn btn-success">Close chat window</button>
+		</div>
 	</div>
 
 	<div class="panel z-hidden" id="file-message-template">
