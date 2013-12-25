@@ -122,7 +122,10 @@
 	};
 
 	window.Connection.prototype.inviteForChatting = function (partnerNick, onSuccess, onFail) {
-		this._ws.send(makeBuffer(pck.cl.chatInvite, partnerNick));
+		var bw = new BinaryWriter();
+		bw.writeByte(pck.cl.chatInvite);
+		bw.writeInt32(partnerNick.length);
+		this._ws.send(bw.toUint8Array());
 		setupHandlers(this, pck.srv.chatInviteResponse, onSuccess, onFail);
 	};
 
