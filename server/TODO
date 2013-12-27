@@ -5,3 +5,4 @@ when partner disconnect - all message history is invisible
 hide send file wnd if we drag and drop
 implement disconnect session
 implement parameters
+add icon over a chat window like on btc-e, when it scrolled up
