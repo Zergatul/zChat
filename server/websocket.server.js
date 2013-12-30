@@ -46,6 +46,7 @@ pck.srv.beginDownload = 11;
 pck.srv.requestFileData = 12;
 pck.srv.fileData = 13;
 pck.srv.endDownload = 14;
+pck.srv.chatInviteTimeout = 15;
 
 var state = {
 	INITIAL: 1,
@@ -59,17 +60,16 @@ var state = {
 	CHATTING_SECONDARY: 11
 };
 
-var okMessage = 'ok';
+var okMessage = 127;
 
 var users = {};
 
 var onMessage = function (socket, message) {
-	console.log('received: %s', message);
+	if (settings.packetLogging)
+		console.log('received: %s', message.toString('hex'));
 
-	var delimiterIndex = message.indexOf(':');
-	var id = message.substring(0, delimiterIndex);
-	id = parseInt(id);
-	var data = message.substring(delimiterIndex + 1);
+	var id = message[0];
+	var data = message.slice(1);
 
 	if (id == pck.cl.nick) {
 		onNickPacket(socket, data);
@@ -121,6 +121,14 @@ var onMessage = function (socket, message) {
 	}
 };
 
+var makeBuffer = function (id, str) {
+	var msg = new Buffer(str);
+	var buf = new Buffer(msg.length + 1);
+	buf[0] = id;
+	msg.copy(buf, 1);
+	return buf;
+};
+
 var onClose = function (socket) {
 	var user = users[socket._nick];
 	if (user == undefined)
@@ -131,27 +139,28 @@ var onClose = function (socket) {
 	if (user.state == state.CHATTING_PRIMARY || user.state == state.CHATTING_SECONDARY) {
 		var partner = users[user.partner];
 		if (partner != undefined) {
-			users[user.partner].socket.send(pck.srv.partnerDisconnect + ':');
+			users[user.partner].socket.send(new Buffer([pck.srv.partnerDisconnect]));
 			users[user.partner].state = state.INITIAL;
 		}
 	}
 };
 
-var onNickPacket = function (socket, nick) {
+var onNickPacket = function (socket, data) {
 	if (socket._nick != undefined) {
 		console.log('Nick packet already sended!');
 		return;
 	}
+	var nick = new Buffer(data).toString('utf8');
 	if (users[nick] == undefined) {
 		socket._nick = nick;
 		users[nick] = { state: state.INITIAL, socket: socket, nick: nick };
-		socket.send(pck.srv.nickResponse + ':' + okMessage);
+		socket.send(new Buffer([pck.srv.nickResponse, okMessage]));
 	} else {
-		socket.send(pck.srv.nickResponse + ':Nick is already used by another user.');
+		socket.send(makeBuffer(pck.srv.nickResponse, 'Nick is already used by another user'));
 	}
 };
 
-var onChatInvite = function (socket, partnerNick) {
+var onChatInvite = function (socket, data) {
 	var nick = socket._nick;
 	if (nick == undefined) {
 		console.log('User did not send nick.');
@@ -165,35 +174,58 @@ var onChatInvite = function (socket, partnerNick) {
 		console.log('User already in busy state.');
 		return;
 	}
+	var strLen = data.readInt32LE(0);
+	var partnerNick = data.toString('utf8', 4, 4 + strLen);
 	if (nick == partnerNick) {
-		socket.send(pck.srv.chatInviteResponse + ':You cannot chat with self.');
+		socket.send(makeBuffer(pck.srv.chatInviteResponse, 'You cannot chat with self'));
 		return;
 	}
 	if (users[partnerNick] == undefined) {
-		socket.send(pck.srv.chatInviteResponse + ':User is not online now.');
+		socket.send(makeBuffer(pck.srv.chatInviteResponse, 'User is not online now'));
 		return;
 	}
 	var partner = users[partnerNick];
 	if (partner.state == state.WAIT_FOR_INVITE_RESPONSE) {
-		socket.send(pck.srv.chatInviteResponse + ':This user is inviting another user now.');
+		socket.send(makeBuffer(pck.srv.chatInviteResponse, 'This user is inviting another user now'));
 		return;
 	}
 	if (partner.state == state.INVITING_PROCESS) {
-		socket.send(pck.srv.chatInviteResponse + ':Someone else is inviting this user for chatting.');
+		socket.send(makeBuffer(pck.srv.chatInviteResponse, 'Someone else is inviting this user for chatting'));
 		return;
 	}
 	if (partner.state == state.CHATTING_PRIMARY || partner.state == state.CHATTING_SECONDARY) {
-		socket.send(pck.srv.chatInviteResponse + ':This user is already chatting with someone.');
+		socket.send(makeBuffer(pck.srv.chatInviteResponse, 'This user is already chatting with someone'));
 		return;
 	}
-	socket.send(pck.srv.chatInviteResponse + ':' + okMessage);
-	partner.socket.send(pck.srv.otherUserChatInvite + ':' + nick);
+	socket.send(new Buffer([pck.srv.chatInviteResponse, okMessage]));
+
+	var nickBuffer = new Buffer(nick);
+	var buffer = new Buffer(1 + 4 + nickBuffer.length + 8 + 1);
+	buffer[0] = pck.srv.otherUserChatInvite;
+	buffer.writeUInt32LE(nickBuffer.length, 1);
+	nickBuffer.copy(buffer, 5);
+	data.copy(buffer, 1 + 4 + nickBuffer.length, 4 + strLen);
+	partner.socket.send(buffer);
 
 	users[nick].state = state.WAIT_FOR_INVITE_RESPONSE;
 	users[nick].inviting = partnerNick;
 
 	partner.state = state.INVITING_PROCESS;
 	partner.invitedBy = nick;
+
+	if (users[nick].timer != null)
+		clearTimeout(users[nick].timer);
+	if (partner.timer != null)
+		clearTimeout(users[nick].timer);
+
+	var timer = setTimeout(function () {
+		users[nick].socket.send(new Buffer([pck.srv.chatInviteTimeout]));
+		partner.socket.send(new Buffer([pck.srv.chatInviteTimeout]));
+		users[nick].state = state.INITIAL;
+		partner.state = state.INITIAL;
+	}, 30000);
+	users[nick].timer = timer;
+	partner.timer = timer;
 };
 
 var onAcceptInvite = function (socket) {
@@ -207,7 +239,12 @@ var onAcceptInvite = function (socket) {
 	user.partner = partner.nick;
 	partner.partner = user.nick;
 
-	user.socket.send(pck.srv.userInviteResponse + ':' + okMessage);
+	clearTimeout(user.timer);
+	user.timer = null;
+	clearTimeout(partner.timer);
+	partner.timer = null;
+
+	user.socket.send(new Buffer([pck.srv.userInviteResponse, okMessage]));
 };
 
 var onDeclineInvite = function (socket) {
@@ -218,7 +255,12 @@ var onDeclineInvite = function (socket) {
 	user.state = state.INITIAL;
 	partner.state = state.INITIAL;
 
-	user.socket.send(pck.srv.userInviteResponse + ':User declined your invite.');
+	clearTimeout(user.timer);
+	user.timer = null;
+	clearTimeout(partner.timer);
+	partner.timer = null;
+
+	user.socket.send(makeBuffer(pck.srv.userInviteResponse, 'User declined your invite'));
 };
 
 var onRsaParams = function (socket, data) {
@@ -253,7 +295,7 @@ var onRsaParams = function (socket, data) {
 	user.state = state.WAITING_FOR_SESSION_KEY;
 	partner.state = state.SESSION_KEY_SENDING;
 
-	partner.socket.send(pck.srv.rsaParams + ':' + data);
+	partner.socket.send(makeBuffer(pck.srv.rsaParams, data));
 };
 
 var onSessionKey = function (socket, data) {
@@ -288,50 +330,50 @@ var onSessionKey = function (socket, data) {
 	user.state = state.CHATTING_SECONDARY;
 	partner.state = state.CHATTING_PRIMARY;
 
-	partner.socket.send(pck.srv.sessionKey + ':' + data);
+	partner.socket.send(makeBuffer(pck.srv.sessionKey, data));
 
-	user.socket.send(pck.srv.sessionInit + ':' + partner.nick);
-	partner.socket.send(pck.srv.sessionInit + ':' + user.nick);
+	user.socket.send(makeBuffer(pck.srv.sessionInit, partner.nick));
+	partner.socket.send(makeBuffer(pck.srv.sessionInit, user.nick));
 };
 
-var onMessagePacket = function (socket, message) {
+var onMessagePacket = function (socket, data) {
 	var user = users[socket._nick];
 	var partner = users[user.partner];
 
-	partner.socket.send(pck.srv.message + ':' + message);
+	partner.socket.send(makeBuffer(pck.srv.message, data));
 };
 
-var onFileInfo = function (socket, message) {
+var onFileInfo = function (socket, data) {
 	var user = users[socket._nick];
 	var partner = users[user.partner];
 
-	partner.socket.send(pck.srv.fileInfo + ':' + message);
+	partner.socket.send(makeBuffer(pck.srv.fileInfo, data));
 };
 
-var onBeginDownload = function (socket, message) {
+var onBeginDownload = function (socket, data) {
 	var user = users[socket._nick];
 	var partner = users[user.partner];
 
-	partner.socket.send(pck.srv.beginDownload + ':' + message);
+	partner.socket.send(makeBuffer(pck.srv.beginDownload, data));
 };
 
-var onRequestFileData = function (socket, message) {
+var onRequestFileData = function (socket, data) {
 	var user = users[socket._nick];
 	var partner = users[user.partner];
 
-	partner.socket.send(pck.srv.requestFileData + ':' + message);
+	partner.socket.send(makeBuffer(pck.srv.requestFileData, data));
 };
 
-var onFileData = function (socket, message) {
+var onFileData = function (socket, data) {
 	var user = users[socket._nick];
 	var partner = users[user.partner];
 
-	partner.socket.send(pck.srv.fileData + ':' + message);
+	partner.socket.send(makeBuffer(pck.srv.fileData, data));
 };
 
-var onEndDownload = function (socket, message) {
+var onEndDownload = function (socket, data) {
 	var user = users[socket._nick];
 	var partner = users[user.partner];
 
-	partner.socket.send(pck.srv.endDownload + ':' + message);
+	partner.socket.send(makeBuffer(pck.srv.endDownload, data));
 };

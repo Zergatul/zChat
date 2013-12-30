@@ -4,5 +4,6 @@ module.exports = {
 	httpsPort: 443,
 	wsPort: 81,
 	cacheMaxAge: 900,
-	useHttps: false
+	useHttps: false,
+	packetLogging: false
 };

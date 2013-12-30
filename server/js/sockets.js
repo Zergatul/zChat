@@ -27,8 +27,9 @@
 	pck.srv.requestFileData = 12;
 	pck.srv.fileData = 13;
 	pck.srv.endDownload = 14;
+	pck.srv.chatInviteTimeout = 15;
 
-	var okMessage = 'ok';
+	var okMessage = 127;
 
 	window.Connection = function () {
 		var self = this;
@@ -36,6 +37,7 @@
 		this._handlers = {};
 
 		this._ws = new WebSocket(webSocketAddr);
+		this._ws.binaryType = 'arraybuffer';
 
 		this._ws.onopen = function () {
 			if (typeof self._onConnect == 'function') {
@@ -52,10 +54,9 @@
 		};
 
 		this._ws.onmessage = function (event) {
-			var delimiterIndex = event.data.indexOf(':');
-			var id = event.data.substring(0, delimiterIndex);
-			id = parseInt(id);
-			var data = event.data.substring(delimiterIndex + 1);
+			var message = new Uint8Array(event.data);
+			var id = message[0];
+			var data = message.subarray(1);
 			resolveSrvPacket(self, id, data);
 		};
 
@@ -96,7 +97,7 @@
 			if (handlers.onMessage != undefined)
 				handlers.onMessage(data);
 			else
-				if (data == okMessage)
+				if (data.length == 1 && data[0] == okMessage)
 					handlers.onSuccess();
 				else
 					handlers.onFail(data);
@@ -108,13 +109,29 @@
 		this._ws.close();
 	};
 
+	var makeBuffer = function (id, data) {
+		var bytes = typeof data == 'string' ? encodings.UTF8.getBytes(data) : data;
+		var buf = new Uint8Array(bytes.length + 1)
+		buf.set(bytes, 1);
+		buf[0] = id;
+		return buf.buffer;
+	};
+
 	window.Connection.prototype.sendNick = function (nick, onSuccess, onFail) {
-		this._ws.send(pck.cl.nick + ':' + nick);
+		this._ws.send(makeBuffer(pck.cl.nick, nick));
 		setupHandlers(this, pck.srv.nickResponse, onSuccess, onFail);
 	};
 
-	window.Connection.prototype.inviteForChatting = function (partnerNick, onSuccess, onFail) {
-		this._ws.send(pck.cl.chatInvite + ':' + partnerNick);
+	window.Connection.prototype.inviteForChatting = function (partnerNick, rsaKeyLength, aesKeyLength, withPwd, onSuccess, onFail) {
+		var bw = new BinaryWriter();
+		bw.writeByte(pck.cl.chatInvite);
+		var bytes = encodings.UTF8.getBytes(partnerNick);
+		bw.writeInt32(bytes.length);
+		bw.writeBytes(bytes);
+		bw.writeInt32(rsaKeyLength);
+		bw.writeInt32(aesKeyLength);
+		bw.writeByte(withPwd ? 1 : 0);
+		this._ws.send(bw.toUint8Array());
 		setupHandlers(this, pck.srv.chatInviteResponse, onSuccess, onFail);
 	};
 
@@ -123,43 +140,53 @@
 	};
 
 	window.Connection.prototype.acceptInvite = function () {
-		this._ws.send(pck.cl.acceptInvite + ':');
+		this._ws.send(new Uint8Array([pck.cl.acceptInvite]).buffer);
 	};
 
 	window.Connection.prototype.declineInvite = function () {
-		this._ws.send(pck.cl.declineInvite + ':');
+		this._ws.send(new Uint8Array([pck.cl.declineInvite]).buffer);
 	};
 
-	window.Connection.prototype.sendRsaParams = function (data) {
-		this._ws.send(pck.cl.rsaParams + ':' + data);
+	window.Connection.prototype.sendRsaParams = function (keyLength, messageLength, n, e) {
+		var nBin = n.toUint8Array();
+		var eBin = e.toUint8Array();
+		var bw = new BinaryWriter();
+		bw.writeByte(pck.cl.rsaParams);
+		bw.writeInt32(keyLength);
+		bw.writeInt32(messageLength);
+		bw.writeInt32(nBin.length);
+		bw.writeBytes(nBin);
+		bw.writeInt32(eBin.length);
+		bw.writeBytes(eBin);
+		this._ws.send(bw.toUint8Array());
 	};
 
 	window.Connection.prototype.sendSessionKey = function (data) {
-		this._ws.send(pck.cl.sessionKey + ':' + data);
+		this._ws.send(makeBuffer(pck.cl.sessionKey, data));
 	};
 
-	window.Connection.prototype.sendMessage = function (text) {
-		this._ws.send(pck.cl.message + ':' + text);
+	window.Connection.prototype.sendMessage = function (data) {
+		this._ws.send(makeBuffer(pck.cl.message, data));
 	};
 
-	window.Connection.prototype.sendFileInfo = function (fileuid, name, size) {
-		this._ws.send(pck.cl.fileInfo + ':' + fileuid + ':' + name + ':' + size);
+	window.Connection.prototype.sendFileInfo = function (data) {
+		this._ws.send(makeBuffer(pck.cl.fileInfo, data));
 	};
 
-	window.Connection.prototype.sendBeginDownload = function (fileuid) {
-		this._ws.send(pck.cl.beginDownload + ':' + fileuid);
+	window.Connection.prototype.sendBeginDownload = function (data) {
+		this._ws.send(makeBuffer(pck.cl.beginDownload, data));
 	};
 
-	window.Connection.prototype.sendRequestFileData = function (fileuid, from, len) {
-		this._ws.send(pck.cl.requestFileData + ':' + fileuid + ':' + from + ':' + len);
+	window.Connection.prototype.sendRequestFileData = function (data) {
+		this._ws.send(makeBuffer(pck.cl.requestFileData, data));
 	};
 
-	window.Connection.prototype.sendFileData = function (fileuid, from, len, data) {
-		this._ws.send(pck.cl.fileData + ':' + fileuid + ':' + from + ':' + len + ':' + bh.byteArrayToHex(data));
+	window.Connection.prototype.sendFileData = function (data) {
+		this._ws.send(makeBuffer(pck.cl.fileData, data));
 	};
 
-	window.Connection.prototype.sendEndDownload = function (fileuid) {
-		this._ws.send(pck.cl.endDownload + ':' + fileuid);
+	window.Connection.prototype.sendEndDownload = function (data) {
+		this._ws.send(makeBuffer(pck.cl.endDownload, data));
 	};
 
 	window.Connection.prototype.onConnect = function (func) {
@@ -216,6 +243,10 @@
 
 	window.Connection.prototype.onPartnerDisconnect = function (func) {
 		setupHandler(this, pck.srv.partnerDisconnect, func, true);
+	};
+
+	window.Connection.prototype.onChatInviteTimeout = function (func) {
+		setupHandler(this, pck.srv.chatInviteTimeout, func, true);
 	};
 
 })();

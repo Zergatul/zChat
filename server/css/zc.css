@@ -32,3 +32,212 @@
 		box-shadow: 0 0 10px #2B67FF;
 	}
 }
+
+.z-header {
+	color: #095517;
+	text-shadow: 0 0 1px #aaaaff;
+}
+
+.z-center-div-200 {
+	width: 200px;
+	margin: 0 auto;
+}
+
+.z-center-div-400 {
+	width: 400px;
+	margin: 0 auto;
+}
+
+.z-center-div-600 {
+	width: 600px;
+	margin: 0 auto;
+}
+
+.z-hidden {
+	display: none !important;
+}
+
+.z-margin-top {
+	margin-top: 4px;
+}
+
+.z-progress-full {
+	width: 100%;
+}
+
+.z-div-50perc {
+	float: left;
+	width: 50%;
+}
+
+.z-param {
+	padding: 8px;
+	margin-left: 40px;
+	margin-right: 40px;
+}
+
+.z-param > ul {
+	padding-left: 20px;
+}
+
+.z-param > ul > li > label {
+	margin-bottom: 0px;
+}
+
+.z-div-clear {
+	clear: both;
+}
+
+.z-secret-pwd {
+	padding: 8px;
+}
+
+.z-font-normal {
+	font-weight: normal;
+}
+
+.z-pad-left {
+	padding-left: 4px;
+}
+
+#chat-div {
+	text-align: left;
+	box-shadow: 2px 2px 2px #555555;
+}
+
+#messages-div {
+	margin-bottom: 5px;
+	overflow-y: auto;
+	height: 100px;
+}
+
+#messages-div > div.panel {
+	margin-bottom: 5px;
+	margin-left: 5px;
+	margin-right: 5px;
+}
+
+#messages-div > div.panel > .panel-heading {
+	padding: 4px 15px 3px 15px;
+}
+
+#messages-div > div.panel > .panel-heading h3 {
+	font-size: 15px;
+}
+
+#messages-div > div.panel > div.panel-body {
+	padding: 3px 15px;
+}
+
+.z-float-left {
+	float: left;
+}
+
+.z-float-right {
+	float: right;
+}
+
+#text-input-div {
+	width: 100%;
+}
+
+.z-pointer {
+	cursor: pointer;
+}
+
+#drag-div {
+	z-index: 10000;
+	position: absolute;
+	top: 0px;
+	left: 0px;
+	background-color: rgba(220, 220, 200, 0.5);
+	border: 10px dotted #0033FF;
+	border-radius: 50px;
+	margin: 5px;
+	text-align: center;
+	vertical-align: middle;
+	font-size: 50px;
+	display: none;
+}
+
+#drag-div :first-child {
+	float: left;
+	height: 50%;
+	width: 100%;
+	margin-bottom: -36px;
+}
+
+#drag-div :last-child {
+	clear: both;
+	height: 72px;
+	color: #0033FF;
+	font-weight: bold;
+}
+
+#drag-over-div {
+	z-index: 11000;
+	position: absolute;
+	top: 0px;
+	left: 0px;
+	display: none;
+}
+
+.z-file-input {
+	background-color: #d9edf7;
+	border-color: #bce8f1;
+	padding: 5px;
+	margin-bottom: 8px;
+	border: 1px solid transparent;
+	border-radius: 4px;
+}
+
+.z-file-input > span {
+	font-size: 14px;
+}
+
+.z-file-label {
+	font-size: 13px;
+	background-color: #999999;
+}
+
+.z-file-hash {
+	font-size: 13px;
+	font-family: courier new;
+	background-color: #FAFAFA;
+	color: #6B6B6B;
+	border: 1px solid #DDDDDD;
+	padding: 2px 8px 2px 8px;
+}
+
+.z-file-info-div > div {
+	margin: 6px 0px;
+}
+
+.z-simple-progress {
+	transition: none !important;
+	-webkit-transition: none !important;
+}
+
+.z-panel-partner-msg {
+	border-color: #C1CDFF;
+}
+
+.z-panel-partner-msg > .panel-heading {
+	color: #3354B7;
+	background-color: #DDE9FF;
+	border-color: #C1CDFF;
+}
+
+.z-panel-my-msg {
+	border-color: #bbbbbb;
+}
+
+.z-panel-my-msg > .panel-heading {
+	color: #444444;
+	background-color: #cccccc;
+	border-color: #bbbbbb;
+}
+
+#messages-div > .panel h3 {
+	font-weight: bold;
+}

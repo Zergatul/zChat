@@ -2,6 +2,12 @@
 
 	if (bh == undefined)
 		throw 'bithelper.js not loaded';
+	if (HashAlgorithm == undefined)
+		throw 'hash.algorithm.js not loaded';
+
+	window.HashAlgorithm.MD4 = function () {};
+	window.HashAlgorithm.MD4.prototype = new HashAlgorithm();
+	window.HashAlgorithm.MD4.prototype.hashSize = 128;
 
 	//
 	// round 1 left rotates
@@ -38,7 +44,7 @@
 		return u ^ v ^ w;
 	};
 
-	window.md4 = function (bytes) {
+	window.HashAlgorithm.MD4.prototype.computeHash = function (bytes) {
 
 		if (bytes instanceof Array)
 			bytes = new Uint8Array(bytes);

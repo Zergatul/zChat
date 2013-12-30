@@ -1,9 +1,66 @@
 (function () {
 
-	if (bh == undefined)
+	if (window.bh == undefined)
 		throw 'bithelper.js not loaded';
-	if (Padding == undefined)
+	if (window.Padding == undefined)
 		throw 'paddings.js not loaded';
+	if (window.BlockCipher == undefined)
+		throw 'block.cipher.js not loaded';
+
+	window.AES = function () {};
+	window.AES.prototype = new BlockCipher();
+	window.AES.prototype.createEncryptor = function (key, cipherMode, padding, random) {
+		var p = {};
+		p.key = key;
+
+		p.aesVersion = p.key.length * 8;
+		p.keySize = p.key.length / 4;
+		if ([128, 192, 256].indexOf(p.aesVersion) == -1)
+			throw 'Invalid key size';
+
+		p.rounds = 6 + p.keySize;
+		generateWorkingKey(p, true);
+
+		var result = BlockCipher.prototype.createEncryptor.call(this, key, cipherMode, padding, random);
+		result.blockSize = 16;
+		result.processBlock = function (bytes) {
+			if (bytes.length != this.blockSize)
+				throw 'Invalid block size';
+
+			p.bytes = bytes;
+			unpackBlock(p);
+			encryptBlock(p);
+			return packBlock(p);
+		};
+
+		return result;
+	};
+	window.AES.prototype.createDecryptor = function (key, cipherMode, padding, random) {
+		var p = {};
+		p.key = key;
+
+		p.aesVersion = p.key.length * 8;
+		p.keySize = p.key.length / 4;
+		if ([128, 192, 256].indexOf(p.aesVersion) == -1)
+			throw 'Invalid key size';
+
+		p.rounds = 6 + p.keySize;
+		generateWorkingKey(p, false);
+
+		var result = BlockCipher.prototype.createDecryptor.call(this, key, cipherMode, padding, random);
+		result.blockSize = 16;
+		result.processBlock = function (bytes) {
+			if (bytes.length != this.blockSize)
+				throw 'Invalid block size';
+
+			p.bytes = bytes;
+			unpackBlock(p);
+			decryptBlock(p);
+			return packBlock(p);
+		};
+
+		return result;
+	};
 
 	var Sbox = new Uint8Array([
 		0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76, 
@@ -402,72 +459,4 @@
 			p.wk[r][3];
 	};
 
-	window.aes = {};
-
-	window.aes.encrypt = function (data, keyData, padding) {
-
-		if (data instanceof Array)
-			data = new Uint8Array(data);
-		if (keyData instanceof Array)
-			keyData = new Uint8Array(keyData);
-		if (!(data instanceof Uint8Array) || !(keyData instanceof Uint8Array) || !(padding instanceof Padding))
-			throw 'Invalid parameters';
-
-		var p = {};
-		p.key = keyData;
-
-		p.aesVersion = p.key.length * 8;
-		p.keySize = p.key.length / 4;
-		if ([128, 192, 256].indexOf(p.aesVersion) == -1)
-			throw 'Invalid key size';
-
-		p.rounds = 6 + p.keySize;
-		generateWorkingKey(p, true);
-
-		var padded = padding.pad(data, 16);
-		var enc = new Uint8Array(padded.length);
-		for (var i = 0; i < padded.length / 16; i++) {
-			p.bytes = padded.subarray(i * 16, (i + 1) * 16);
-			unpackBlock(p);
-			encryptBlock(p);
-			enc.set(packBlock(p), i * 16);
-		}
-
-		return enc;
-	};
-
-	window.aes.decrypt = function (data, keyData, padding) {
-
-		if (data instanceof Array)
-			data = new Uint8Array(data);
-		if (keyData instanceof Array)
-			keyData = new Uint8Array(keyData);
-		if (!(data instanceof Uint8Array) || !(keyData instanceof Uint8Array) || !(padding instanceof Padding))
-			throw 'Invalid parameters';
-		if (data.length % 16 != 0)
-			throw 'Invalid data length';
-
-		var p = {};
-		p.key = keyData;
-
-		p.aesVersion = p.key.length * 8;
-		p.keySize = p.key.length / 4;
-		if ([128, 192, 256].indexOf(p.aesVersion) == -1)
-			throw 'Invalid key size';
-
-		p.rounds = 6 + p.keySize;
-		generateWorkingKey(p, false);
-
-		var dec = new Uint8Array(data.length);
-		for (var i = 0; i < data.length / 16; i++) {
-			p.bytes = data.subarray(i * 16, (i + 1) * 16);
-			unpackBlock(p);
-			decryptBlock(p);
-			dec.set(packBlock(p), i * 16);
-		}
-
-		var padCount = padding.unpad(dec);
-
-		return dec.subarray(0, dec.length - padCount);
-	};
 })();

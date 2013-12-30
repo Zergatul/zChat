@@ -860,7 +860,7 @@
 
 		for (var i = 0; i < count; i++) {
 			do {
-				var b = BigInt.random(bitLength, random.default);
+				var b = BigInt.random(bitLength, Random.Default);
 			} while (b._sign == 0 || b.compareTo(x) >= 0);
 
 			var j = 0;

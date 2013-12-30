@@ -20,8 +20,8 @@
 
 		// generate primes, and check for difference must be > 2^(keyLength / 4)
 		do {
-			var p = BigInt.randomPrime(keyLength / 2 + random.default.nextRange(1, 4), random.SHA2PRNG);
-			var q = BigInt.randomPrime(keyLength / 2 + random.default.nextRange(1, 4), random.SHA2PRNG);
+			var p = BigInt.randomPrime(keyLength / 2 + Random.Default.nextRange(1, 4), Random.SHA2PRNG);
+			var q = BigInt.randomPrime(keyLength / 2 + Random.Default.nextRange(1, 4), Random.SHA2PRNG);
 			var delta = p.subtract(q);
 		} while (delta.bitLength() <= keyLength / 4);
 
@@ -54,7 +54,7 @@
 			throw 'Cannot encrypt message which is greater than key';
 
 		var oaep = new OAEP(Math.ceil(params.publicKey.n.bitLength() / 8) - 1, params.messageLength, 32);
-		var data = oaep.encode(message, random.SHA2PRNG);
+		var data = oaep.encode(message, Random.SHA2PRNG);
 
 		return BigInt.fromUint8Array(data).modPow(params.publicKey.e, params.publicKey.n).toUint8Array();
 	};

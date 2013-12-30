@@ -1,7 +1,12 @@
 (function () {
 
-	if (sha2 == undefined)
+	if (window.HashAlgorithm == undefined)
+		throw 'hash.algorithm.js not loaded';
+	if (window.HashAlgorithm.SHA256 == undefined)
 		throw 'sha2.js not loaded';
+
+	var hashAlgo = new window.HashAlgorithm.SHA256();
+	var sha2 = function (bytes) { return hashAlgo.computeHash(bytes); };
 
 	window.OAEP = function (n, m, k0) {
 		this._n = n;
@@ -25,11 +30,11 @@
 
 		result.set(random.getUint8Array(this._k0), this._n - this._k0);
 
-		var rightHash = sha2(result.subarray(this._n - this._k0, this._n), 256);
+		var rightHash = sha2(result.subarray(this._n - this._k0, this._n));
 		for (var i = 0; i < this._n - this._k0; i++)
 			result[i] = result[i] ^ rightHash[i % 32];
 
-		var leftHash = sha2(result.subarray(0, this._n - this._k0), 256);
+		var leftHash = sha2(result.subarray(0, this._n - this._k0));
 		for (var i = 0; i < this._k0; i++)
 			result[this._n - this._k0 + i] = result[this._n - this._k0 + i] ^ leftHash[i % 32];
 
@@ -47,11 +52,11 @@
 		var result = new Uint8Array(this._n);
 		result.set(bytes, 0);
 
-		var leftHash = sha2(bytes.subarray(0, this._n - this._k0), 256);
+		var leftHash = sha2(bytes.subarray(0, this._n - this._k0));
 		for (var i = 0; i < this._k0; i++)
 			result[this._n - this._k0 + i] = result[this._n - this._k0 + i] ^ leftHash[i % 32];
 
-		var rightHash = sha2(result.subarray(this._n - this._k0, this._n), 256);
+		var rightHash = sha2(result.subarray(this._n - this._k0, this._n));
 		for (var i = 0; i < this._n - this._k0; i++)
 			result[i] = result[i] ^ rightHash[i % 32];
 

@@ -2,6 +2,12 @@
 
 	if (bh == undefined)
 		throw 'bithelper.js not loaded';
+	if (HashAlgorithm == undefined)
+		throw 'hash.algorithm.js not loaded';
+
+	window.HashAlgorithm.MD2 = function () {};
+	window.HashAlgorithm.MD2.prototype = new HashAlgorithm();
+	window.HashAlgorithm.MD2.prototype.hashSize = 128;
 
 	var S = [
          41,  46,  67, 201, 162, 216, 124,   1,  61,  54,  84, 161, 236, 240,   6,  19,
@@ -21,7 +27,7 @@
         242, 239, 183,  14, 102,  88, 208, 228, 166, 119, 114, 248, 235, 117,  75,  10,
          49,  68,  80, 180, 143, 237,  31,  26, 219, 153, 141,  51, 159,  17, 131,  20];
 
-	window.md2 = function (bytes) {
+	window.HashAlgorithm.MD2.prototype.computeHash = function (bytes) {
 
 		if (bytes instanceof Array)
 			bytes = new Uint8Array(bytes);
