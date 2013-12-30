@@ -30,7 +30,7 @@
 <body>
 	<div class="text-center">
 
-		<h2 class="z-header">zChat v0.1.0</h2>
+		<h2 class="z-header">zChat v0.1.1</h2>
 
 		<div id="connect-div" class="z-center-div-400">
 			<div class="input-group">
@@ -130,7 +130,7 @@
 			<div class="alert alert-success">
 				Waiting for response...
 				<div class="progress progress-striped active">
-					<div class="progress-bar z-progress-full" role="progressbar" aria-valuenow="300" aria-valuemin="0" aria-valuemax="300">
+					<div class="progress-bar z-simple-progress" role="progressbar" aria-valuenow="300" aria-valuemin="0" aria-valuemax="300">
 					</div>
 				</div>
 			</div>
@@ -139,8 +139,19 @@
 		<div id="choose-partner-response-div" class="z-center-div-400 z-hidden">
 			<div class="alert alert-success">
 				<p id="chat-inviting-p"></p>
+				<div class="alert alert-info text-left" style="margin-bottom: 12px; margin-top: 8px;">
+					Parameters:
+					<ul>
+						<li>RSA key length: <span></span></li>
+						<li>AES key length: <span></span></li>
+						<li>Using password: <span></span></li>
+					</ul>
+				</div>
+				<div class="well z-secret-pwd" style="margin-bottom: 12px;">
+					<input type="text" class="form-control" placeholder="Password" id="invite-pwd-input" />
+				</div>
 				<div class="progress progress-striped active">
-					<div class="progress-bar z-progress-full" role="progressbar" aria-valuenow="300" aria-valuemin="0" aria-valuemax="300">
+					<div class="progress-bar z-progress-full z-simple-progress" role="progressbar" aria-valuenow="300" aria-valuemin="0" aria-valuemax="300">
 						<span class="sr-only"></span>
 					</div>
 				</div>

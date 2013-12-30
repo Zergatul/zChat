@@ -67,6 +67,7 @@ $(function () {
 		manager.connection.onRequestFileData(conHandlers.onRequestFileData);
 		manager.connection.onFileData(conHandlers.onFileData);
 		manager.connection.onEndDownload(conHandlers.onEndDownload);
+		manager.connection.onChatInviteTimeout(conHandlers.onChatInviteTimeout);
 	};
 
 	manager.onRandomBtnClick = function () {
@@ -83,30 +84,36 @@ $(function () {
 		$('#choose-partner-div').addClass('z-hidden');
 		$('#choose-partner-request-div').removeClass('z-hidden');
 
+		manager.cryptoParams = {
+			rsaKeyLength: manager.getRsaKeyLength(),
+			aesKeyLength: manager.getAesKeyLength(),
+			withPwd: $('#use-pwd-chb').is(':checked')
+		};
+
 		manager.connection.inviteForChatting(
 			partnerNick,
-			manager.getRsaKeyLength(),
-			manager.getAesKeyLength(),
-			$('#use-pwd-chb').attr('checked'),
+			manager.cryptoParams.rsaKeyLength,
+			manager.cryptoParams.aesKeyLength,
+			manager.cryptoParams.withPwd,
 			conHandlers.onChatInviteSuccess,
 			conHandlers.onChatInviteFailed);
 	};
 
 	manager.getRsaKeyLength = function () {
-		if ($('#rsa-1024-rb').attr('checked'))
+		if ($('#rsa-1024-rb').is(':checked'))
 			return 1024;
-		if ($('#rsa-1536-rb').attr('checked'))
+		if ($('#rsa-1536-rb').is(':checked'))
 			return 1536;
-		if ($('#rsa-2048-rb').attr('checked'))
+		if ($('#rsa-2048-rb').is(':checked'))
 			return 2048;
 	};
 
 	manager.getAesKeyLength = function () {
-		if ($('#aes-128-rb').attr('checked'))
+		if ($('#aes-128-rb').is(':checked'))
 			return 128;
-		if ($('#aes-196-rb').attr('checked'))
+		if ($('#aes-196-rb').is(':checked'))
 			return 196;
-		if ($('#aes-256-rb').attr('checked'))
+		if ($('#aes-256-rb').is(':checked'))
 			return 256;
 	};
 
@@ -298,7 +305,7 @@ $(function () {
 		$('#text-input-div input').val('');
 		var bytes = encodings.UTF8.getBytes(text)
 		manager.connection.sendMessage(helper.encrypt(bytes));
-		manager.addMessage('panel-success', manager.nick, text);
+		manager.addMessage('z-panel-my-msg', manager.nick, text);
 	};
 
 	manager.clearBlinkMessages = function () {
@@ -437,27 +444,56 @@ $(function () {
 	};
 
 	conHandlers.onChatRequest = function (data) {
-		/**/
-		TODO HERE
-		/**/
-		var partnerNick = encodings.UTF8.getString(data);
+		var br = new BinaryReader(data);
+		var len = br.readInt32();
+		var partnerNick = encodings.UTF8.getString(br.readBytes(len));
+		var rsaKeyLength = br.readInt32();
+		var aesKeyLength = br.readInt32();
+		var withPwd = br.readByte() != 0;
+
+		manager.cryptoParams = {
+			rsaKeyLength: rsaKeyLength,
+			aesKeyLength: aesKeyLength,
+			withPwd: withPwd
+		};
+
 		$('#choose-partner-div').addClass('z-hidden');
 		$('#choose-partner-response-div').removeClass('z-hidden');
 		$('#chat-inviting-p').text(partnerNick + ' is inviting you for chatting.');
+		$('#chat-inviting-p').next().find('ul > li:eq(0) > span').text(rsaKeyLength);
+		$('#chat-inviting-p').next().find('ul > li:eq(1) > span').text(aesKeyLength);
+		$('#chat-inviting-p').next().find('ul > li:eq(2) > span').text(withPwd ? 'Yes' : 'No');
+
+		$('#invite-pwd-input').val('');
+		if (withPwd)
+			$('#invite-pwd-input').parent().removeClass('z-hidden');
+		else
+			$('#invite-pwd-input').parent().addClass('z-hidden');
 
 		var maxTime = 300;
 		var startTime = new Date();
 		var bar = $('#choose-partner-response-div .progress-bar');
 		bar.attr('aria-valuenow', maxTime);
-		bar.css('width', '100%');
+		var width = bar.parent().width();
+		bar.css('width', width + 'px');
 		var timerFunction = function () {
 			var time = maxTime - Math.round((new Date() - startTime) / 100);
-			if (time <= 0)
+			if (time <= 0) {
 				clearInterval(manager.timer);
+				return;
+			}
 			bar.attr('aria-valuenow', time);
-			bar.css('width', Math.round(400 * time / maxTime) + 'px');
+			bar.css('width', Math.round(width * time / maxTime) + 'px');
 		};
 		manager.timer = setInterval(timerFunction, 100);
+	};
+
+	conHandlers.onChatInviteTimeout = function () {
+		clearInterval(manager.timer);
+		manager.modalDialog('Chat inviting timeout', 'User did not provide any response.');
+		$('#choose-partner-div').removeClass('z-hidden');
+		$('#choose-partner-response-div').addClass('z-hidden');
+		$('#choose-partner-request-div').addClass('z-hidden');
 	};
 
 	conHandlers.onRsaParams = function (data) {
@@ -470,16 +506,16 @@ $(function () {
 			e: BigInt.fromUint8Array(br.readBytes(br.readInt32()))
 		};
 
-		if (rsaParams.keyLength != 1024)
+		if (rsaParams.keyLength != manager.cryptoParams.rsaKeyLength)
 			throw 'Invalid RSA key length';
-		if (rsaParams.messageLength != 32)
+		if (rsaParams.messageLength != manager.cryptoParams.aesKeyLength / 8 + 32)
 			throw 'Invalid message length';
 
-		manager.aesKey = Random.SHA2PRNG.getUint8Array(16);
-		manager.hmacKey = Random.SHA2PRNG.getUint8Array(16);
-		var message = new Uint8Array(32);
+		manager.aesKey = Random.SHA2PRNG.getUint8Array(manager.cryptoParams.aesKeyLength / 8);
+		manager.hmacKey = Random.SHA2PRNG.getUint8Array(32);
+		var message = new Uint8Array(rsaParams.messageLength);
 		message.set(manager.aesKey, 0);
-		message.set(manager.hmacKey, 16);
+		message.set(manager.hmacKey, manager.cryptoParams.aesKeyLength / 8);
 
 		var data = rsa.encode(message, rsaParams);
 		manager.connection.sendSessionKey(data);
@@ -488,8 +524,8 @@ $(function () {
 	conHandlers.onSessionKey = function (data) {
 		var message = rsa.decode(data, manager.rsaParams);
 		manager.rsaParams = null;
-		manager.aesKey = message.subarray(0, 16);
-		manager.hmacKey = message.subarray(16, 32);
+		manager.aesKey = message.subarray(0, manager.cryptoParams.aesKeyLength / 8);
+		manager.hmacKey = message.subarray(manager.cryptoParams.aesKeyLength / 8, manager.cryptoParams.aesKeyLength / 8 + 32);
 	};
 
 	conHandlers.onSessionInit = function (data) {
@@ -505,7 +541,7 @@ $(function () {
 
 	conHandlers.onMessage = function (data) {
 		var text = encodings.UTF8.getString(helper.decrypt(data));
-		manager.addMessage('panel-warning', manager.partnerNick, text, true);
+		manager.addMessage('z-panel-partner-msg', manager.partnerNick, text, true);
 	};
 
 	conHandlers.onPartnerDisconnect = function () {
@@ -537,14 +573,13 @@ $(function () {
 		var startTime = new Date();
 		var bar = $('#choose-partner-request-div .progress-bar');
 		bar.attr('aria-valuenow', maxTime);
-		bar.css('width', '100%');
+		var width = bar.parent().width();
+		bar.css('width', width + 'px');
 		var gotResponse = false;
 		var timerFunction = function () {
 			var time = maxTime - Math.round((new Date() - startTime) / 100);
 			if (time <= 0) {
 				clearInterval(manager.timer);
-				$('#choose-partner-request-div').addClass('z-hidden');
-				$('#choose-partner-div').removeClass('z-hidden');		
 				return;
 			}
 			if (gotResponse) {
@@ -552,7 +587,7 @@ $(function () {
 				return;
 			}
 			bar.attr('aria-valuenow', time);
-			bar.css('width', Math.round(400 * time / maxTime) + 'px');
+			bar.css('width', Math.round(width * time / maxTime) + 'px');
 		};
 		manager.timer = setInterval(timerFunction, 100);
 
@@ -562,7 +597,9 @@ $(function () {
 			$('#choose-partner-request-div').addClass('z-hidden');
 			$('#session-init-div').removeClass('z-hidden');
 
-			manager.rsaParams = rsa.generateParameters(1024, 32);
+			manager.rsaParams = rsa.generateParameters(
+				manager.cryptoParams.rsaKeyLength,
+				manager.cryptoParams.aesKeyLength / 8 + 32);
 			manager.connection.sendRsaParams(
 				manager.rsaParams.keyLength,
 				manager.rsaParams.messageLength,
@@ -590,7 +627,7 @@ $(function () {
 		var size = br.readInt32();
 
 		var fileuidHex = bh.byteArrayToHex(fileuid);
-		var div = manager.addFileMessage('panel-warning', manager.partnerNick, fileName, size, true);
+		var div = manager.addFileMessage('z-panel-partner-msg', manager.partnerNick, fileName, size, true);
 		div.attr('data-fileuid', fileuidHex);
 		fileSender.inFiles[fileuidHex] = { name: fileName, size: size };
 	};
@@ -685,10 +722,7 @@ $(function () {
 
 	helper.createNonAnimatedProgressBar = function () {
 		var div = helper.createProgressBar();
-		div.find('div').css({
-			'transition': 'none',
-			'-webkit-transition': 'none'
-		});
+		div.find('div').addClass('z-simple-progress');
 		return div;
 	};
 
@@ -711,7 +745,7 @@ $(function () {
 		manager.connection.sendFileInfo(helper.encrypt(bw.toUint8Array()));
 		
 		var fileuidHex = bh.byteArrayToHex(fileuid);
-		var div = manager.addFileMessage('panel-success', manager.nick, name, data.length, false, data);
+		var div = manager.addFileMessage('z-panel-my-msg', manager.nick, name, data.length, false, data);
 		div.attr('data-fileuid', fileuidHex);
 		fileSender.outFiles[fileuidHex] = { name: name, size: data.length, data: data };
 	};

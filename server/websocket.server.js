@@ -46,6 +46,7 @@ pck.srv.beginDownload = 11;
 pck.srv.requestFileData = 12;
 pck.srv.fileData = 13;
 pck.srv.endDownload = 14;
+pck.srv.chatInviteTimeout = 15;
 
 var state = {
 	INITIAL: 1,
@@ -203,7 +204,7 @@ var onChatInvite = function (socket, data) {
 	buffer[0] = pck.srv.otherUserChatInvite;
 	buffer.writeUInt32LE(nickBuffer.length, 1);
 	nickBuffer.copy(buffer, 5);
-	data.copy(buffer, 1 + 4 + nickBuffer.length, 1 + 4 + strLen);
+	data.copy(buffer, 1 + 4 + nickBuffer.length, 4 + strLen);
 	partner.socket.send(buffer);
 
 	users[nick].state = state.WAIT_FOR_INVITE_RESPONSE;
@@ -211,6 +212,20 @@ var onChatInvite = function (socket, data) {
 
 	partner.state = state.INVITING_PROCESS;
 	partner.invitedBy = nick;
+
+	if (users[nick].timer != null)
+		clearTimeout(users[nick].timer);
+	if (partner.timer != null)
+		clearTimeout(users[nick].timer);
+
+	var timer = setTimeout(function () {
+		users[nick].socket.send(new Buffer([pck.srv.chatInviteTimeout]));
+		partner.socket.send(new Buffer([pck.srv.chatInviteTimeout]));
+		users[nick].state = state.INITIAL;
+		partner.state = state.INITIAL;
+	}, 30000);
+	users[nick].timer = timer;
+	partner.timer = timer;
 };
 
 var onAcceptInvite = function (socket) {
@@ -224,6 +239,11 @@ var onAcceptInvite = function (socket) {
 	user.partner = partner.nick;
 	partner.partner = user.nick;
 
+	clearTimeout(user.timer);
+	user.timer = null;
+	clearTimeout(partner.timer);
+	partner.timer = null;
+
 	user.socket.send(new Buffer([pck.srv.userInviteResponse, okMessage]));
 };
 
@@ -234,6 +254,11 @@ var onDeclineInvite = function (socket) {
 
 	user.state = state.INITIAL;
 	partner.state = state.INITIAL;
+
+	clearTimeout(user.timer);
+	user.timer = null;
+	clearTimeout(partner.timer);
+	partner.timer = null;
 
 	user.socket.send(makeBuffer(pck.srv.userInviteResponse, 'User declined your invite'));
 };

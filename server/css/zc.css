@@ -203,10 +203,41 @@
 .z-file-hash {
 	font-size: 13px;
 	font-family: courier new;
-	background-color: #FAFFE0;
+	background-color: #FAFAFA;
 	color: #6B6B6B;
+	border: 1px solid #DDDDDD;
+	padding: 2px 8px 2px 8px;
 }
 
 .z-file-info-div > div {
 	margin: 6px 0px;
+}
+
+.z-simple-progress {
+	transition: none !important;
+	-webkit-transition: none !important;
+}
+
+.z-panel-partner-msg {
+	border-color: #C1CDFF;
+}
+
+.z-panel-partner-msg > .panel-heading {
+	color: #3354B7;
+	background-color: #DDE9FF;
+	border-color: #C1CDFF;
+}
+
+.z-panel-my-msg {
+	border-color: #bbbbbb;
+}
+
+.z-panel-my-msg > .panel-heading {
+	color: #444444;
+	background-color: #cccccc;
+	border-color: #bbbbbb;
+}
+
+#messages-div > .panel h3 {
+	font-weight: bold;
 }

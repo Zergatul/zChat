@@ -1,4 +1,3 @@
-timer for returning users back no initial state, if user did not response to chat invite
 close event for socket on server and client
 change websocket mode to arraybuffer
 when partner disconnect - all message history is invisible
@@ -6,3 +5,5 @@ hide send file wnd if we drag and drop
 implement disconnect session
 implement parameters
 add icon over a chat window like on btc-e, when it scrolled up
+check if user trying to fool other user when send rsa/aes parameters
+if websocket error, do not close a chat window!

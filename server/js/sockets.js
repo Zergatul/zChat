@@ -27,6 +27,7 @@
 	pck.srv.requestFileData = 12;
 	pck.srv.fileData = 13;
 	pck.srv.endDownload = 14;
+	pck.srv.chatInviteTimeout = 15;
 
 	var okMessage = 127;
 
@@ -242,6 +243,10 @@
 
 	window.Connection.prototype.onPartnerDisconnect = function (func) {
 		setupHandler(this, pck.srv.partnerDisconnect, func, true);
+	};
+
+	window.Connection.prototype.onChatInviteTimeout = function (func) {
+		setupHandler(this, pck.srv.chatInviteTimeout, func, true);
 	};
 
 })();
